@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turni</title>
+<meta name="theme-color" content="#FBF8F3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Turni">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#FBF8F3;--card:#fff;--ink:#2B2722;--muted:#8A847A;--line:#ECE6DC;--accent:#E0795A;--warn:#C2410C;--warnbg:#FFF1E8}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:150px}
+  button,input,select{font-family:inherit;color:inherit}
+  .wrap{max-width:1100px;margin:0 auto;padding:18px 16px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+  .tabs{display:inline-flex;background:#F1ECE3;border-radius:999px;padding:3px}
+  .tabs button{border:none;background:none;padding:8px 14px;border-radius:999px;font-weight:600;font-size:13.5px;cursor:pointer;color:var(--muted)}
+  .tabs button.sel{background:var(--card);color:var(--ink);box-shadow:0 1px 3px #0001}
+  .month{display:flex;align-items:center;gap:6px;margin:6px 0 14px}
+  .month h1{font:700 28px 'Fraunces',serif;letter-spacing:-.5px;flex:1;text-transform:capitalize}
+  .icon{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--card);font-size:17px;cursor:pointer;display:grid;place-items:center}
+  .btn{border:1px solid var(--line);background:var(--card);font-weight:600;font-size:13px;padding:9px 13px;border-radius:999px;cursor:pointer;white-space:nowrap}
+  .btn.on,.btn.dark{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.ghost{background:none}
+  .actions{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-bottom:12px;padding-bottom:2px}
+  .actions::-webkit-scrollbar{display:none}
+  .people{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}
+  .people::-webkit-scrollbar{display:none}
+  .pchip{flex:none;display:flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--card);padding:6px 13px 6px 6px;border-radius:999px;font-weight:600;font-size:14px;cursor:pointer}
+  .pchip.all{padding-left:13px}
+  .pchip.sel{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .av{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:10.5px;color:#fff;font-weight:700;flex:none}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);margin:2px 0 14px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:10px;height:10px;border-radius:3px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .stat b{display:block;font:700 22px 'Fraunces',serif}
+  .stat span{font-size:12px;color:var(--muted)}
+  .week{margin-bottom:22px}
+  .week h2{font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0 2px 8px}
+  .days{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:10px}
+  .day{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 12px 10px;min-width:0}
+  .day.today{border-color:var(--accent);box-shadow:0 0 0 2px #E0795A22}
+  .dh{display:flex;align-items:baseline;gap:6px;margin-bottom:9px}
+  .dh .n{font:700 22px 'Fraunces',serif;line-height:1}
+  .dh .w{font-size:12.5px;color:var(--muted);font-weight:600;text-transform:capitalize}
+  .dh .tag{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--accent);text-transform:uppercase}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0}
+  .who{font-size:12.5px;font-weight:600;color:#5C564D;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px;min-width:0}
+  .who i{width:7px;height:7px;border-radius:50%;flex:none}
+  .shift{font-weight:600;font-size:12px;padding:4px 8px;border-radius:8px;white-space:nowrap;border:none;font-variant-numeric:tabular-nums;max-width:62%;overflow:hidden;text-overflow:ellipsis}
+  body.edit .shift{cursor:pointer;outline:1.5px dashed #0002;outline-offset:1px}
+  .warn{margin-top:7px;font-size:11px;font-weight:600;color:var(--warn);background:var(--warnbg);border-radius:8px;padding:5px 7px;line-height:1.3}
+  body.focus .row{display:none}
+  body.focus .row.me{display:flex}
+  body.focus .row.me .who{display:none}
+  body.focus .row.me .shift{width:100%;max-width:none;text-align:center;font-size:14px;padding:9px 6px}
+  body.focus .warn{display:none}
+  .palette{position:fixed;left:0;right:0;bottom:0;background:#FBF8F3f2;backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:10px 12px 14px;z-index:10;display:none}
+  body.edit .palette{display:block}
+  .palette p{font-size:12px;color:var(--muted);margin:0 4px 8px;font-weight:600}
+  .brushes{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .brushes::-webkit-scrollbar{display:none}
+  .brush{flex:none;border:2px solid transparent;border-radius:12px;padding:8px 11px;font-weight:600;font-size:13px;cursor:pointer;text-align:left;line-height:1.15}
+  .brush small{display:block;font-weight:500;font-size:11px;opacity:.75}
+  .brush.sel{border-color:var(--ink);box-shadow:0 2px 8px #0002}
+  .scrim{position:fixed;inset:0;background:#0005;display:none;align-items:flex-end;justify-content:center;z-index:20}
+  .scrim.open{display:flex}
+  .sheet{background:var(--card);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:18px 16px 24px;max-height:88vh;overflow:auto}
+  .sheet h3{font:700 20px 'Fraunces',serif;margin-bottom:6px}
+  .sheet p.sub{font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.4}
+  .field{margin-bottom:14px}
+  .field label.l{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:7px}
+  .checks{display:flex;flex-wrap:wrap;gap:7px}
+  .check{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:13.5px;font-weight:600;cursor:pointer;user-select:none}
+  .check.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .sheet .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+  textarea,.inp{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 11px;font-size:14px;background:#fff}
+  textarea{min-height:90px;font-size:12px;font-family:ui-monospace,monospace}
+  /* settings */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:16px}
+  .panel h2{font:700 19px 'Fraunces',serif;margin-bottom:4px}
+  .panel .sub{font-size:13px;color:var(--muted);margin-bottom:12px}
+  .item{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+  .item:first-of-type{border-top:none}
+  .item .inp{flex:1;min-width:120px}
+  .time{width:112px;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:14px}
+  .swatch{width:30px;height:30px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer;flex:none}
+  .del{border:none;background:none;font-size:18px;cursor:pointer;color:var(--muted);padding:4px 6px}
+  .mini{font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+  .mini input{accent-color:var(--ink)}
+  .colors{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;width:100%}
+  .colors button{width:26px;height:26px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer}
+  .toast{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 14px;border-radius:999px;font-size:13px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:30;white-space:nowrap}
+  .toast.show{opacity:1}
+  .empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:14px}
+  .hint{font-size:12.5px;color:var(--muted);margin:-4px 2px 14px;line-height:1.4}
+  @media (max-width:760px){
+    .days{grid-template-columns:1fr}
+    .day{display:grid;grid-template-columns:58px 1fr;column-gap:10px;align-items:start}
+    .dh{flex-direction:column;align-items:flex-start;gap:2px;margin:0}
+    .dh .tag{margin:4px 0 0}
+    .rows{min-width:0}
+    .warn{grid-column:2}
+    body.focus .days{grid-template-columns:1fr 1fr}
+    body.focus .day{display:block}
+    body.focus .dh{flex-direction:row;align-items:baseline;margin-bottom:8px}
+    .month h1{font-size:25px}
+  }
+  #printArea{display:none}
+  @media print{
+    @page{size:A4 landscape;margin:10mm}
+    body{background:#fff;padding:0}
+    body > *:not(#printArea){display:none !important}
+    #printArea{display:block;font-family:'DM Sans',sans-serif;color:#2B2722;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    #printArea h1{font:700 22px 'Fraunces',serif;margin-bottom:4px;text-transform:capitalize}
+    #printArea .pl{font-size:10px;color:#8A847A;margin-bottom:10px;display:flex;flex-wrap:wrap;gap:4px 12px}
+    #printArea .pl i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+    #printArea table{width:100%;border-collapse:separate;border-spacing:3px;margin-bottom:8px;page-break-inside:avoid;table-layout:fixed}
+    #printArea th{font-size:10.5px;font-weight:700;text-align:center;padding:3px;color:#5C564D}
+    #printArea th.name,#printArea td.name{text-align:left;width:105px;font-size:11px;font-weight:600}
+    #printArea td{font-size:10.5px;font-weight:600;text-align:center;padding:5px 2px;border-radius:5px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="tabs"><button id="tabPlan" class="sel">🗓️ Turni</button><button id="tabSet">⚙️ Persone e orari</button></div>
+  </div>
+
+  <section id="viewPlan">
+    <div class="month">
+      <h1 id="monthTitle"></h1>
+      <button class="icon" id="prevM" aria-label="Mese precedente">‹</button>
+      <button class="icon" id="nextM" aria-label="Mese successivo">›</button>
+    </div>
+    <div class="actions">
+      <button class="btn" id="editBtn">✏️ Modifica</button>
+      <button class="btn" id="rotBtn">🔄 Rotazione automatica</button>
+      <button class="btn" id="copyWeekBtn">⧉ Copia settimana</button>
+      <button class="btn" id="waBtn">📤 Condividi</button>
+      <button class="btn" id="pdfBtn">📄 PDF</button>
+      <button class="btn" id="csvBtn">📊 Excel</button>
+      <button class="btn" id="clearBtn">🧹 Svuota mese</button>
+    </div>
+    <div class="people" id="people"></div>
+    <div class="legend" id="legend"></div>
+    <p class="hint" id="editHint" style="display:none">Scegli un turno qui sotto, poi tocca le caselle per applicarlo. Si salva da solo.</p>
+    <div class="stats" id="stats" style="display:none"></div>
+    <main id="weeks"></main>
+  </section>
+
+  <section id="viewSet" style="display:none">
+    <div class="panel">
+      <h2>Persone</h2>
+      <p class="sub">Chi compare nella tabella dei turni.</p>
+      <div id="peopleList"></div>
+      <button class="btn" id="addPerson" style="margin-top:8px">＋ Aggiungi persona</button>
+    </div>
+    <div class="panel">
+      <h2>Tipi di turno</h2>
+      <p class="sub">Orari e colori. Con “ogni giorno” la pagina avvisa se in un giorno manca quel turno. Senza orario (es. 104, ferie) vale come assenza.</p>
+      <div id="shiftList"></div>
+      <button class="btn" id="addShift" style="margin-top:8px">＋ Aggiungi turno</button>
+    </div>
+    <div class="panel">
+      <h2>Giorni lavorativi</h2>
+      <p class="sub">Quali giorni della settimana mostrare.</p>
+      <div class="checks" id="wdList"></div>
+    </div>
+    <div class="panel">
+      <h2>Backup</h2>
+      <p class="sub">I turni restano salvati in questo browser. Per spostarli su un altro telefono o computer, o per tenerne una copia, copia il codice e incollalo dall’altra parte.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="exportBtn">📤 Copia codice backup</button>
+        <button class="btn" id="importBtn">📥 Incolla un backup</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="palette" id="palette">
+  <p>Turno da applicare</p>
+  <div class="brushes" id="brushes"></div>
+</div>
+
+<div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+<div id="printArea"></div>
+
+<script>
+/* ---------- costanti ---------- */
+const COLORS = [
+  {bg:'#DDEFD9',fg:'#2F5D2A',dot:'#6BAF5F'},
+  {bg:'#DCE9F7',fg:'#24476E',dot:'#5B8FCC'},
+  {bg:'#FBE3CF',fg:'#7A4115',dot:'#E08A4A'},
+  {bg:'#ECE3F5',fg:'#4E3570',dot:'#9A7BC4'},
+  {bg:'#F8D9DE',fg:'#7D2236',dot:'#D2566E'},
+  {bg:'#D7F0EE',fg:'#1F5B57',dot:'#4AA9A1'},
+  {bg:'#FFF1BF',fg:'#6B5500',dot:'#D9B12C'},
+  {bg:'#F1EFEA',fg:'#77716A',dot:'#B9B3A8'},
+];
+const PERSON_COLORS = ['#E0795A','#5B8FCC','#6BAF5F','#9A7BC4','#D2566E','#4AA9A1','#D9B12C','#8A847A'];
+const WD_SHORT = ['dom','lun','mar','mer','gio','ven','sab'];
+const WD_LONG = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+const MONTHS = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+const KEY = 'turni-web-v1';
+const uid = () => Math.random().toString(36).slice(2,9);
+
+/* ---------- dati di esempio (novembre 2026) ---------- */
+function seed(){
+  const now=new Date();
+  const cur=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const people=[];
+  const shifts = [
+    {id:'M',name:'Apertura',start:'07:30',end:'13:30',c:0,req:true},
+    {id:'C',name:'Centrale',start:'09:00',end:'16:00',c:1,req:false},
+    {id:'P',name:'Chiusura',start:'10:30',end:'17:00',c:2,req:true},
+    {id:'R',name:'Part-time',start:'08:30',end:'12:00',c:3,req:false},
+    {id:'L',name:'104',start:'',end:'',c:4,req:false},
+    {id:'F',name:'Ferie',start:'',end:'',c:6,req:false},
+  ];
+  return {people,shifts,workdays:[1,2,3,4,5],months:{},cur};
+}
+
+/* ---------- stato ---------- */
+let S;
+try{ S = JSON.parse(localStorage.getItem(KEY)); }catch(e){ S=null; }
+if(!S || !S.people) S = seed();
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+
+let focus=null, editing=false, brush=null;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const initials=n=>n.split(/[\s.]+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase()||'?';
+const ym=()=>S.cur.split('-').map(Number);
+const plan=()=> (S.months[S.cur] ||= {});
+const shiftById=id=>S.shifts.find(s=>s.id===id);
+const hm=t=>{ if(!t) return null; const [h,m]=t.split(':').map(Number); return h*60+m; };
+const fmt=t=>t? t.replace(/^0/,'').replace(':00',':00') : '';
+function hours(s){ const a=hm(s.start), b=hm(s.end); return (a!=null&&b!=null&&b>a)?(b-a)/60:0; }
+function label(v){
+  if(!v) return '—';
+  if(typeof v==='object') return v.note;
+  const s=shiftById(v); if(!s) return '?';
+  return s.start ? `${fmt(s.start)} – ${fmt(s.end)}` : s.name;
+}
+function styleOf(v){
+  if(!v) return COLORS[7];
+  if(typeof v==='object') return {bg:'#FFF4C8',fg:'#6B5500'};
+  const s=shiftById(v); return s?COLORS[s.c%COLORS.length]:COLORS[7];
+}
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'),1900); }
+
+/* ---------- calendario ---------- */
+function monthWeeks(){
+  const [y,m]=ym(); const n=new Date(y,m,0).getDate();
+  const weeks=[]; let cur=[];
+  for(let d=1; d<=n; d++){
+    const wd=new Date(y,m-1,d).getDay();
+    if(wd===1 && cur.length){ weeks.push(cur); cur=[]; }
+    if(S.workdays.includes(wd)) cur.push(d);
+  }
+  if(cur.length) weeks.push(cur);
+  return weeks.filter(w=>w.length);
+}
+function visiblePeople(){ return S.people; }
+
+/* ---------- render turni ---------- */
+function renderMonth(){
+  const [y,m]=ym(); $('monthTitle').textContent=`${MONTHS[m-1]} ${y}`;
+}
+function renderPeople(){
+  const el=$('people'); el.innerHTML='';
+  const all=document.createElement('button'); all.className='pchip all'+(focus?'':' sel'); all.textContent='Tutte';
+  all.onclick=()=>{focus=null;renderPlan();}; el.appendChild(all);
+  S.people.forEach(p=>{
+    const b=document.createElement('button'); b.className='pchip'+(focus===p.id?' sel':'');
+    b.innerHTML=`<span class="av" style="background:${p.color}">${esc(initials(p.name))}</span>${esc(p.name)}`;
+    b.onclick=()=>{focus=focus===p.id?null:p.id; renderPlan();}; el.appendChild(b);
+  });
+}
+function renderLegend(){
+  $('legend').innerHTML=S.shifts.map(s=>`<span><i style="background:${COLORS[s.c%COLORS.length].dot}"></i>${esc(s.name)}${s.start?' '+fmt(s.start)+'–'+fmt(s.end):''}</span>`).join('');
+}
+function renderStats(){
+  const el=$('stats');
+  if(!focus){ el.style.display='none'; return; }
+  const pl=plan()[focus]||{}; let h=0, days=0; const cnt={};
+  monthWeeks().flat().forEach(d=>{ const v=pl[d]; if(!v||typeof v==='object') return; const s=shiftById(v); if(!s) return; cnt[s.id]=(cnt[s.id]||0)+1; const x=hours(s); if(x){h+=x;days++;} });
+  const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+  el.style.display='grid';
+  el.innerHTML=`<div class="stat"><b>${(Math.round(h*10)/10).toString().replace('.',',')}</b><span>ore nel mese</span></div>
+    <div class="stat"><b>${days}</b><span>giorni di lavoro</span></div>
+    <div class="stat"><b>${top?top[1]:0}</b><span>${top?esc(shiftById(top[0]).name.toLowerCase()):'turni'}</span></div>`;
+}
+function warnings(d){
+  const vals=S.people.map(p=>(plan()[p.id]||{})[d]);
+  return S.shifts.filter(s=>s.req && !vals.includes(s.id)).map(s=>`Manca: ${s.name}${s.start?' ('+fmt(s.start)+')':''}`);
+}
+function renderWeeks(){
+  const main=$('weeks'); main.innerHTML='';
+  const weeks=monthWeeks();
+  if(!S.people.length){ main.innerHTML='<div class="empty"><p style="font:700 20px Fraunces,serif;color:var(--ink);margin-bottom:6px">Benvenuta! 👋</p><p>Per iniziare aggiungi le colleghe e controlla gli orari dei turni.</p><button class="btn dark" style="margin-top:14px" onclick="tab(\'set\')">Vai a “Persone e orari”</button></div>'; return; }
+  const [y,m]=ym(); const now=new Date();
+  const cols=Math.min(S.workdays.length,6);
+  weeks.forEach((wk,wi)=>{
+    const sec=document.createElement('section'); sec.className='week';
+    const lab = wk.length>1?`${wk[0]}–${wk[wk.length-1]} ${MONTHS[m-1]}`:`${wk[0]} ${MONTHS[m-1]}`;
+    sec.innerHTML=`<h2>Settimana ${lab}</h2>`;
+    const grid=document.createElement('div'); grid.className='days'; grid.style.setProperty('--cols',cols);
+    wk.forEach(d=>{
+      const date=new Date(y,m-1,d); const today=now.getFullYear()===y&&now.getMonth()===m-1&&now.getDate()===d;
+      const card=document.createElement('div'); card.className='day'+(today?' today':'');
+      let rows='';
+      S.people.forEach(p=>{
+        const v=(plan()[p.id]||{})[d]; const st=styleOf(v);
+        rows+=`<div class="row${focus===p.id?' me':''}"><span class="who"><i style="background:${p.color}"></i>${esc(p.name)}</span>
+          <button class="shift" data-p="${p.id}" data-d="${d}" style="background:${st.bg};color:${st.fg}">${esc(label(v))}</button></div>`;
+      });
+      const w=warnings(d);
+      card.innerHTML=`<div class="dh"><span class="n">${d}</span><span class="w">${WD_SHORT[date.getDay()]}</span>${today?'<span class="tag">oggi</span>':''}</div>
+        <div class="rows">${rows}</div>${w.length?`<div class="warn">⚠️ ${w.map(esc).join(' · ')}</div>`:''}`;
+      grid.appendChild(card);
+    });
+    sec.appendChild(grid); main.appendChild(sec);
+  });
+  main.querySelectorAll('.shift').forEach(b=>b.onclick=()=>{ if(editing) paint(b.dataset.p,+b.dataset.d); });
+}
+function renderBrushes(){
+  const el=$('brushes');
+  const items=S.shifts.map(s=>({k:s.id,name:s.name,sub:s.start?`${fmt(s.start)}–${fmt(s.end)}`:'assenza',st:COLORS[s.c%COLORS.length]}));
+  items.push({k:'__clear',name:'Vuoto',sub:'cancella',st:COLORS[7]});
+  items.push({k:'__note',name:'✍️ Nota',sub:brush&&brush.note?brush.note:'testo libero',st:{bg:'#FFF4C8',fg:'#6B5500'}});
+  el.innerHTML=items.map(i=>{
+    const sel = brush && ((i.k==='__note'&&typeof brush==='object')||(i.k===brush));
+    return `<button class="brush${sel?' sel':''}" data-k="${i.k}" style="background:${i.st.bg};color:${i.st.fg}">${esc(i.name)}<small>${esc(i.sub)}</small></button>`;
+  }).join('');
+  el.querySelectorAll('.brush').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.k;
+    if(k==='__note'){ askNote(); return; }
+    brush=k; renderBrushes();
+  });
+}
+function paint(pid,d){
+  if(!brush){ toast('Scegli prima un turno qui sotto'); return; }
+  const pl=plan(); pl[pid] ||= {};
+  if(brush==='__clear') delete pl[pid][d];
+  else if(typeof brush==='object') pl[pid][d]={note:brush.note};
+  else pl[pid][d] = (pl[pid][d]===brush) ? undefined : brush;
+  if(pl[pid][d]===undefined) delete pl[pid][d];
+  save(); renderWeeks(); renderStats();
+}
+function renderPlan(){
+  document.body.classList.toggle('focus',!!focus);
+  document.body.classList.toggle('edit',editing);
+  $('editBtn').classList.toggle('on',editing);
+  $('editBtn').textContent=editing?'✓ Fatto':'✏️ Modifica';
+  $('editHint').style.display=editing?'block':'none';
+  if(focus && !S.people.some(p=>p.id===focus)) focus=null;
+  renderMonth(); renderPeople(); renderLegend(); renderStats(); renderWeeks(); if(editing) renderBrushes();
+}
+
+/* ---------- fogli (bottom sheet) ---------- */
+function openSheet(html,bind){ $('sheet').innerHTML=html; $('scrim').classList.add('open'); bind&&bind($('sheet')); }
+function closeSheet(){ $('scrim').classList.remove('open'); }
+$('scrim').onclick=e=>{ if(e.target.id==='scrim') closeSheet(); };
+
+function askNote(){
+  openSheet(`<h3>Nota libera</h3><p class="sub">Per esempio “Ferie”, “Formazione”. Poi tocca le caselle per applicarla.</p>
+    <input class="inp" id="noteIn" placeholder="Scrivi qui…" value="${brush&&brush.note?esc(brush.note):''}">
+    <div class="foot" style="margin-top:12px"><button class="btn ghost" id="x">Annulla</button><button class="btn dark" id="ok">Usa questa nota</button></div>`,
+  sh=>{ const i=sh.querySelector('#noteIn'); setTimeout(()=>i.focus(),50);
+    sh.querySelector('#x').onclick=closeSheet;
+    sh.querySelector('#ok').onclick=()=>{ const v=i.value.trim(); if(!v) return; brush={note:v}; closeSheet(); renderBrushes(); }; });
+}
+
+function checks(list,selected,attr){
+  return list.map(x=>`<span class="check${selected.includes(x.id)?' on':''}" data-${attr}="${x.id}">${esc(x.label)}</span>`).join('');
+}
+function bindChecks(sh,attr,arr){
+  sh.querySelectorAll(`[data-${attr}]`).forEach(c=>c.onclick=()=>{
+    const id=c.dataset[attr]; const i=arr.indexOf(id);
+    if(i>=0) arr.splice(i,1); else arr.push(id);
+    c.classList.toggle('on');
+  });
+}
+function rotation(){
+  const weeks=monthWeeks();
+  const selP=S.people.filter(p=>!/sostituz/i.test(p.name)).slice(0,3).map(p=>p.id);
+  const working=S.shifts.filter(s=>s.start);
+  const selS=working.filter(s=>s.req||s.name.toLowerCase()==='centrale').map(s=>s.id).slice(0,Math.max(selP.length,1));
+  const ws=weeks.map((w,i)=>({id:String(i),label:`${w[0]}–${w[w.length-1]}`}));
+  const selW=ws.map(w=>w.id);
+  let onlyEmpty=true;
+  openSheet(`<h3>Rotazione automatica</h3>
+    <p class="sub">Le persone scelte si scambiano i turni ogni giorno, a giro. È un punto di partenza: dopo puoi ritoccare a mano.</p>
+    <div class="field"><label class="l">Chi ruota (in quest’ordine)</label><div class="checks">${checks(S.people.map(p=>({id:p.id,label:p.name})),selP,'p')}</div></div>
+    <div class="field"><label class="l">Quali turni</label><div class="checks">${checks(working.map(s=>({id:s.id,label:`${s.name} ${fmt(s.start)}`})),selS,'s')}</div></div>
+    <div class="field"><label class="l">Settimane</label><div class="checks">${checks(ws,selW,'w')}</div></div>
+    <div class="field"><label class="mini"><input type="checkbox" id="oe" checked> Riempi solo le caselle vuote</label></div>
+    <div class="foot"><button class="btn ghost" id="x">Annulla</button><button class="btn dark" id="ok">Genera</button></div>`,
+  sh=>{
+    bindChecks(sh,'p',selP); bindChecks(sh,'s',selS); bindChecks(sh,'w',selW);
+    sh.querySelector('#oe').onchange=e=>onlyEmpty=e.target.checked;
+    sh.querySelector('#x').onclick=closeSheet;
+    sh.querySelector('#ok').onclick=()=>{
+      if(!selP.length||!selS.length){ toast('Scegli almeno una persona e un turno'); return; }
+      const people=S.people.filter(p=>selP.includes(p.id)).map(p=>p.id);
+      const sh_=S.shifts.filter(s=>selS.includes(s.id)).map(s=>s.id);
+      const pl=plan(); let k=0, n=0;
+      weeks.forEach((w,wi)=>w.forEach(d=>{
+        if(selW.includes(String(wi))){
+          people.forEach((pid,i)=>{
+            pl[pid] ||= {};
+            if(onlyEmpty && pl[pid][d]) return;
+            pl[pid][d]=sh_[(i+k)%sh_.length]; n++;
+          });
+        }
+        k++;
+      }));
+      save(); closeSheet(); renderPlan(); toast(`Fatto: ${n} turni inseriti`);
+    };
+  });
+}
+function copyWeek(){
+  const weeks=monthWeeks();
+  if(weeks.length<2){ toast('Serve almeno una seconda settimana'); return; }
+  const opts=weeks.map((w,i)=>`<option value="${i}">${w[0]}–${w[w.length-1]}</option>`).join('');
+  openSheet(`<h3>Copia una settimana</h3><p class="sub">Copia i turni di una settimana su un’altra, giorno per giorno (lunedì su lunedì, ecc.).</p>
+    <div class="field"><label class="l">Da</label><select class="inp" id="from">${opts}</select></div>
+    <div class="field"><label class="l">A</label><select class="inp" id="to">${opts}</select></div>
+    <div class="foot"><button class="btn ghost" id="x">Annulla</button><button class="btn dark" id="ok">Copia</button></div>`,
+  sh=>{
+    sh.querySelector('#to').value=String(Math.min(1,weeks.length-1));
+    sh.querySelector('#x').onclick=closeSheet;
+    sh.querySelector('#ok').onclick=()=>{
+      const a=weeks[+sh.querySelector('#from').value], b=weeks[+sh.querySelector('#to').value];
+      if(a===b){ toast('Scegli due settimane diverse'); return; }
+      const [y,m]=ym(); const byWd=w=>Object.fromEntries(w.map(d=>[new Date(y,m-1,d).getDay(),d]));
+      const A=byWd(a), B=byWd(b); const pl=plan();
+      S.people.forEach(p=>{ pl[p.id] ||= {}; for(const wd in B){ const src=A[wd]; if(src==null) continue; const v=pl[p.id][src]; if(v) pl[p.id][B[wd]]=JSON.parse(JSON.stringify(v)); else delete pl[p.id][B[wd]]; } });
+      save(); closeSheet(); renderPlan(); toast('Settimana copiata');
+    };
+  });
+}
+function confirmSheet(title,text,okLabel,fn){
+  openSheet(`<h3>${title}</h3><p class="sub">${text}</p><div class="foot"><button class="btn ghost" id="x">Annulla</button><button class="btn dark" id="ok">${okLabel}</button></div>`,
+    sh=>{ sh.querySelector('#x').onclick=closeSheet; sh.querySelector('#ok').onclick=()=>{ fn(); closeSheet(); }; });
+}
+
+/* ---------- WhatsApp ---------- */
+function waText(){
+  const [y,m]=ym(); const P=focus?S.people.filter(p=>p.id===focus):S.people;
+  let out=focus?`🗓️ Turni di ${P[0].name} – ${MONTHS[m-1]} ${y}\n`:`🗓️ Turni ${MONTHS[m-1]} ${y}\n`;
+  monthWeeks().forEach(w=>{
+    out+='\n';
+    w.forEach(d=>{
+      const wd=WD_LONG[new Date(y,m-1,d).getDay()];
+      if(focus){ out+=`${wd} ${d}: ${label((plan()[focus]||{})[d])}\n`; }
+      else{
+        const lines=P.map(p=>{ const v=(plan()[p.id]||{})[d]; return v?`${p.name}: ${label(v)}`:null; }).filter(Boolean);
+        if(lines.length) out+=`*${wd} ${d}*\n${lines.join('\n')}\n`;
+      }
+    });
+  });
+  return out.trim();
+}
+async function copyText(t,msg){
+  try{ await navigator.clipboard.writeText(t); toast(msg); }
+  catch(e){ openSheet(`<h3>Copia il testo</h3><p class="sub">Tieni premuto e copia.</p><textarea readonly>${esc(t)}</textarea><div class="foot"><button class="btn dark" id="x">Chiudi</button></div>`, sh=>sh.querySelector('#x').onclick=closeSheet); }
+}
+
+/* ---------- impostazioni ---------- */
+function colorPicker(cur,onPick,isPerson){
+  const list=isPerson?PERSON_COLORS:COLORS.map(c=>c.dot);
+  return {html:`<div class="colors">${list.map((c,i)=>`<button data-c="${i}" style="background:${c}${(isPerson?c===cur:i===cur)?';box-shadow:0 0 0 2px #2B2722':''}"></button>`).join('')}</div>`, onPick};
+}
+function renderSettings(){
+  const pl=$('peopleList'); pl.innerHTML='';
+  S.people.forEach(p=>{
+    const row=document.createElement('div'); row.className='item';
+    row.innerHTML=`<button class="swatch" style="background:${p.color}"></button><input class="inp" value="${esc(p.name)}"><button class="del" title="Elimina">✕</button><div class="cp" style="display:none;width:100%"></div>`;
+    row.querySelector('input').oninput=e=>{ p.name=e.target.value; save(); };
+    row.querySelector('.del').onclick=()=>confirmSheet('Eliminare '+esc(p.name)+'?','Verranno tolti anche i suoi turni in tutti i mesi.','Elimina',()=>{ S.people=S.people.filter(x=>x!==p); for(const k in S.months) delete S.months[k][p.id]; save(); renderSettings(); });
+    const cp=row.querySelector('.cp');
+    row.querySelector('.swatch').onclick=()=>{ cp.style.display=cp.style.display==='none'?'block':'none';
+      cp.innerHTML=colorPicker(p.color,null,true).html;
+      cp.querySelectorAll('button').forEach(b=>b.onclick=()=>{ p.color=PERSON_COLORS[+b.dataset.c]; save(); renderSettings(); }); };
+    pl.appendChild(row);
+  });
+  const sl=$('shiftList'); sl.innerHTML='';
+  S.shifts.forEach(s=>{
+    const row=document.createElement('div'); row.className='item';
+    row.innerHTML=`<button class="swatch" style="background:${COLORS[s.c%COLORS.length].dot}"></button>
+      <input class="inp" value="${esc(s.name)}" placeholder="Nome">
+      <button class="del" title="Elimina">✕</button>
+      <div style="display:flex;align-items:center;gap:8px;width:100%;padding-left:38px;flex-wrap:wrap">
+        <input class="time" type="time" value="${s.start}" aria-label="Inizio"><span style="color:var(--muted)">–</span><input class="time" type="time" value="${s.end}" aria-label="Fine">
+        <label class="mini"><input type="checkbox" ${s.req?'checked':''}> ogni giorno</label>
+      </div><div class="cp" style="display:none;width:100%"></div>`;
+    const [nm,st,en]=row.querySelectorAll('input.inp, input.time');
+    nm.oninput=e=>{ s.name=e.target.value; save(); };
+    st.onchange=e=>{ s.start=e.target.value; save(); };
+    en.onchange=e=>{ s.end=e.target.value; save(); };
+    row.querySelector('input[type=checkbox]').onchange=e=>{ s.req=e.target.checked; save(); };
+    row.querySelector('.del').onclick=()=>confirmSheet('Eliminare il turno “'+esc(s.name)+'”?','Le caselle che lo usano torneranno vuote.','Elimina',()=>{ S.shifts=S.shifts.filter(x=>x!==s); for(const k in S.months) for(const pid in S.months[k]) for(const d in S.months[k][pid]) if(S.months[k][pid][d]===s.id) delete S.months[k][pid][d]; save(); renderSettings(); });
+    const cp=row.querySelector('.cp');
+    row.querySelector('.swatch').onclick=()=>{ cp.style.display=cp.style.display==='none'?'block':'none';
+      cp.innerHTML=colorPicker(s.c,null,false).html;
+      cp.querySelectorAll('button').forEach(b=>b.onclick=()=>{ s.c=+b.dataset.c; save(); renderSettings(); }); };
+    sl.appendChild(row);
+  });
+  const wl=$('wdList'); const order=[1,2,3,4,5,6,0];
+  wl.innerHTML=order.map(d=>`<span class="check${S.workdays.includes(d)?' on':''}" data-d="${d}">${WD_LONG[d]}</span>`).join('');
+  wl.querySelectorAll('.check').forEach(c=>c.onclick=()=>{ const d=+c.dataset.d; S.workdays=S.workdays.includes(d)?S.workdays.filter(x=>x!==d):[...S.workdays,d]; save(); renderSettings(); });
+}
+$('addPerson').onclick=()=>{ S.people.push({id:uid(),name:'Nuova persona',color:PERSON_COLORS[S.people.length%PERSON_COLORS.length]}); save(); renderSettings(); const ins=$('peopleList').querySelectorAll('.inp'); const l=ins[ins.length-1]; l.focus(); l.select(); };
+$('addShift').onclick=()=>{ S.shifts.push({id:uid(),name:'Nuovo turno',start:'08:00',end:'14:00',c:S.shifts.length%7,req:false}); save(); renderSettings(); };
+$('exportBtn').onclick=()=>copyText(btoa(unescape(encodeURIComponent(JSON.stringify(S)))),'Codice copiato: salvalo in una nota o mandalo a te stessa');
+$('importBtn').onclick=()=>openSheet(`<h3>Incolla un backup</h3><p class="sub">Sostituisce tutti i dati di questo dispositivo con quelli del backup.</p><textarea id="code" placeholder="Incolla qui il codice…"></textarea>
+  <div class="foot" style="margin-top:12px"><button class="btn ghost" id="x">Annulla</button><button class="btn dark" id="ok">Ripristina</button></div>`,
+  sh=>{ sh.querySelector('#x').onclick=closeSheet; sh.querySelector('#ok').onclick=()=>{
+    try{ const d=JSON.parse(decodeURIComponent(escape(atob(sh.querySelector('#code').value.trim())))); if(!d.people||!d.shifts) throw 0; S=d; save(); closeSheet(); renderSettings(); toast('Backup ripristinato'); }
+    catch(e){ toast('Codice non valido'); } }; });
+
+/* ---------- navigazione ---------- */
+function shiftMonth(delta){
+  let [y,m]=ym(); m+=delta; if(m<1){m=12;y--;} if(m>12){m=1;y++;}
+  S.cur=`${y}-${String(m).padStart(2,'0')}`; save(); renderPlan();
+}
+$('prevM').onclick=()=>shiftMonth(-1);
+$('nextM').onclick=()=>shiftMonth(1);
+$('editBtn').onclick=()=>{ editing=!editing; if(editing&&!brush) brush=S.shifts[0]?.id||null; renderPlan(); };
+$('rotBtn').onclick=rotation;
+$('copyWeekBtn').onclick=copyWeek;
+$('waBtn').onclick=async()=>{
+  const t=waText();
+  if(navigator.share){ try{ await navigator.share({title:'Turni',text:t}); return; }catch(e){ if(e.name==='AbortError') return; } }
+  copyText(t,'Copiato! Incollalo su WhatsApp');
+};
+function buildPrint(){
+  const [y,m]=ym(); const P=focus?S.people.filter(p=>p.id===focus):S.people;
+  let h=`<h1>Turni ${MONTHS[m-1]} ${y}${focus?' – '+esc(P[0].name):''}</h1><div class="pl">`+
+    S.shifts.map(s=>`<span><i style="background:${COLORS[s.c%COLORS.length].dot}"></i>${esc(s.name)}${s.start?' '+fmt(s.start)+'–'+fmt(s.end):''}</span>`).join('')+'</div>';
+  const weeks=monthWeeks(); const maxLen=Math.max(...weeks.map(w=>w.length));
+  weeks.forEach(w=>{
+    h+='<table><tr><th class="name"></th>'+w.map(d=>`<th>${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}</th>`).join('')+'<th></th>'.repeat(maxLen-w.length)+'</tr>';
+    P.forEach(p=>{
+      h+=`<tr><td class="name">${esc(p.name)}</td>`+w.map(d=>{ const v=(plan()[p.id]||{})[d]; const st=styleOf(v); return `<td style="background:${st.bg};color:${st.fg}">${esc(label(v))}</td>`; }).join('')+'<td></td>'.repeat(maxLen-w.length)+'</tr>';
+    });
+    h+='</table>';
+  });
+  $('printArea').innerHTML=h;
+}
+$('pdfBtn').onclick=()=>{
+  buildPrint();
+  toast('Nella finestra di stampa scegli “Salva come PDF”');
+  setTimeout(()=>{ try{ window.print(); }catch(e){ toast('Stampa non disponibile qui'); } },300);
+};
+$('csvBtn').onclick=()=>{
+  const [y,m]=ym(); const days=monthWeeks().flat(); const P=focus?S.people.filter(p=>p.id===focus):S.people;
+  const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+  const lines=[['',...days.map(d=>`${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}`)].map(q).join(';')];
+  P.forEach(p=>lines.push([p.name,...days.map(d=>{ const v=(plan()[p.id]||{})[d]; return v?label(v):''; })].map(q).join(';')));
+  const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`turni-${MONTHS[m-1]}-${y}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  toast('File Excel scaricato');
+};
+$('clearBtn').onclick=()=>{ const [y,m]=ym(); confirmSheet(`Svuotare ${MONTHS[m-1]}?`,'Tutti i turni di questo mese verranno cancellati. Persone e orari restano.','Svuota',()=>{ S.months[S.cur]={}; save(); renderPlan(); toast('Mese svuotato'); }); };
+function tab(which){
+  $('viewPlan').style.display=which==='plan'?'block':'none';
+  $('viewSet').style.display=which==='set'?'block':'none';
+  $('tabPlan').classList.toggle('sel',which==='plan');
+  $('tabSet').classList.toggle('sel',which==='set');
+  if(which==='set'){ editing=false; document.body.classList.remove('edit'); renderSettings(); } else renderPlan();
+  window.scrollTo(0,0);
+}
+$('tabPlan').onclick=()=>tab('plan');
+$('tabSet').onclick=()=>tab('set');
+
+renderPlan();
+</script>
+</body>
+</html>
