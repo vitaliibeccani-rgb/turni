@@ -626,7 +626,15 @@ $('linkBtn').onclick=async()=>{
 if(READONLY){
   document.body.classList.add('ro');
   const dd=READONLY.d?READONLY.d.split('-').reverse().join('/'):'';
-  $('roBanner').innerHTML=`👀 Sola lettura${dd?' · aggiornato al '+dd:''}. Se i turni cambiano, chiedi il link nuovo.`;
+  $('roBanner').innerHTML=`👀 Sola lettura${dd?' · aggiornato al '+dd:''}. Se i turni cambiano, chiedi il link nuovo.<br><button class="btn" id="importLink" style="margin-top:8px">📥 Salva questi turni su questo dispositivo</button>`;
+  $('importLink').onclick=()=>{ const [y,m]=ym(); confirmSheet('Salvare questi turni qui?',`Su questo dispositivo verranno sostituiti persone, orari e i turni di ${MONTHS[m-1]} con quelli del link. Gli altri mesi restano.`,'Salva',()=>{
+    let L=null; try{ L=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+    if(!L||!L.people) L={months:{}};
+    L.title=S.title; L.people=S.people; L.shifts=S.shifts; L.workdays=S.workdays; L.cur=S.cur;
+    L.months=L.months||{}; L.months[S.cur]=S.months[S.cur];
+    try{ localStorage.setItem(KEY, JSON.stringify(L)); }catch(e){ toast('Salvataggio non riuscito'); return; }
+    location.href=location.pathname;
+  }); };
 }
 window.addEventListener('hashchange',()=>location.reload());
 renderPlan();
