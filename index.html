@@ -131,6 +131,11 @@
     #printArea th.name,#printArea td.name{text-align:left;width:105px;font-size:11px;font-weight:600}
     #printArea td{font-size:10.5px;font-weight:600;text-align:center;padding:5px 2px;border-radius:5px}
   }
+  .sect{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);margin-bottom:-2px}
+  .month .tt{flex:1;min-width:0}
+  .ro-banner{display:none;background:#EEF4FB;color:#24476E;border-radius:14px;padding:10px 13px;font-size:13px;font-weight:600;margin-bottom:12px;line-height:1.4}
+  body.ro .ro-banner{display:block}
+  body.ro .tabs,body.ro #prevM,body.ro #nextM,body.ro #editBtn,body.ro #rotBtn,body.ro #copyWeekBtn,body.ro #clearBtn,body.ro #linkBtn{display:none}
 </style>
 </head>
 <body>
@@ -140,8 +145,9 @@
   </div>
 
   <section id="viewPlan">
+    <div class="ro-banner" id="roBanner"></div>
     <div class="month">
-      <h1 id="monthTitle"></h1>
+      <div class="tt"><div class="sect" id="sectTitle"></div><h1 id="monthTitle"></h1></div>
       <button class="icon" id="prevM" aria-label="Mese precedente">‹</button>
       <button class="icon" id="nextM" aria-label="Mese successivo">›</button>
     </div>
@@ -150,6 +156,7 @@
       <button class="btn" id="rotBtn">🔄 Rotazione automatica</button>
       <button class="btn" id="copyWeekBtn">⧉ Copia settimana</button>
       <button class="btn" id="waBtn">📤 Condividi</button>
+      <button class="btn" id="linkBtn">🔗 Link sola lettura</button>
       <button class="btn" id="pdfBtn">📄 PDF</button>
       <button class="btn" id="csvBtn">📊 Excel</button>
       <button class="btn" id="clearBtn">🧹 Svuota mese</button>
@@ -162,6 +169,11 @@
   </section>
 
   <section id="viewSet" style="display:none">
+    <div class="panel">
+      <h2>Sezione</h2>
+      <p class="sub">Il nome compare in alto, nel PDF e nei messaggi condivisi.</p>
+      <input class="inp" id="titleIn" placeholder="Es. Sezione Coccinelle">
+    </div>
     <div class="panel">
       <h2>Persone</h2>
       <p class="sub">Chi compare nella tabella dei turni.</p>
@@ -238,7 +250,17 @@ function seed(){
 let S;
 try{ S = JSON.parse(localStorage.getItem(KEY)); }catch(e){ S=null; }
 if(!S || !S.people) S = seed();
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+let READONLY=null;
+const b64e=str=>btoa(unescape(encodeURIComponent(str))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const b64d=str=>decodeURIComponent(escape(atob(str.replace(/-/g,'+').replace(/_/g,'/'))));
+if(location.hash.startsWith('#v=')){
+  try{
+    const d=JSON.parse(b64d(location.hash.slice(3)));
+    READONLY=d;
+    S={title:d.t||'',people:d.p,shifts:d.s,workdays:d.w,cur:d.c,months:{[d.c]:d.pl}};
+  }catch(e){ READONLY=null; }
+}
+function save(){ if(READONLY) return; try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 
 let focus=null, editing=false, brush=null;
 const $=id=>document.getElementById(id);
@@ -280,6 +302,8 @@ function visiblePeople(){ return S.people; }
 /* ---------- render turni ---------- */
 function renderMonth(){
   const [y,m]=ym(); $('monthTitle').textContent=`${MONTHS[m-1]} ${y}`;
+  $('sectTitle').textContent=S.title||'';
+  document.title=S.title?`Turni · ${S.title}`:'Turni';
 }
 function renderPeople(){
   const el=$('people'); el.innerHTML='';
@@ -463,7 +487,7 @@ function confirmSheet(title,text,okLabel,fn){
 /* ---------- WhatsApp ---------- */
 function waText(){
   const [y,m]=ym(); const P=focus?S.people.filter(p=>p.id===focus):S.people;
-  let out=focus?`🗓️ Turni di ${P[0].name} – ${MONTHS[m-1]} ${y}\n`:`🗓️ Turni ${MONTHS[m-1]} ${y}\n`;
+  let out=(S.title?`🐣 ${S.title}\n`:'')+(focus?`🗓️ Turni di ${P[0].name} – ${MONTHS[m-1]} ${y}\n`:`🗓️ Turni ${MONTHS[m-1]} ${y}\n`);
   monthWeeks().forEach(w=>{
     out+='\n';
     w.forEach(d=>{
@@ -488,6 +512,7 @@ function colorPicker(cur,onPick,isPerson){
   return {html:`<div class="colors">${list.map((c,i)=>`<button data-c="${i}" style="background:${c}${(isPerson?c===cur:i===cur)?';box-shadow:0 0 0 2px #2B2722':''}"></button>`).join('')}</div>`, onPick};
 }
 function renderSettings(){
+  const ti=$('titleIn'); ti.value=S.title||''; ti.oninput=e=>{ S.title=e.target.value; save(); };
   const pl=$('peopleList'); pl.innerHTML='';
   S.people.forEach(p=>{
     const row=document.createElement('div'); row.className='item';
@@ -552,7 +577,7 @@ $('waBtn').onclick=async()=>{
 };
 function buildPrint(){
   const [y,m]=ym(); const P=focus?S.people.filter(p=>p.id===focus):S.people;
-  let h=`<h1>Turni ${MONTHS[m-1]} ${y}${focus?' – '+esc(P[0].name):''}</h1><div class="pl">`+
+  let h=`${S.title?'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#E0795A">'+esc(S.title)+'</div>':''}<h1>Turni ${MONTHS[m-1]} ${y}${focus?' – '+esc(P[0].name):''}</h1><div class="pl">`+
     S.shifts.map(s=>`<span><i style="background:${COLORS[s.c%COLORS.length].dot}"></i>${esc(s.name)}${s.start?' '+fmt(s.start)+'–'+fmt(s.end):''}</span>`).join('')+'</div>';
   const weeks=monthWeeks(); const maxLen=Math.max(...weeks.map(w=>w.length));
   weeks.forEach(w=>{
@@ -591,6 +616,19 @@ function tab(which){
 $('tabPlan').onclick=()=>tab('plan');
 $('tabSet').onclick=()=>tab('set');
 
+$('linkBtn').onclick=async()=>{
+  const payload={t:S.title||'',p:S.people,s:S.shifts,w:S.workdays,c:S.cur,pl:plan(),d:new Date().toISOString().slice(0,10)};
+  const url=location.origin+location.pathname+'#v='+b64e(JSON.stringify(payload));
+  const [y,m]=ym(); const msg=`Turni ${MONTHS[m-1]} ${y}${S.title?' – '+S.title:''}`;
+  if(navigator.share){ try{ await navigator.share({title:msg,text:msg,url}); return; }catch(e){ if(e.name==='AbortError') return; } }
+  copyText(url,'Link copiato: chi lo apre vede i turni senza poterli modificare');
+};
+if(READONLY){
+  document.body.classList.add('ro');
+  const dd=READONLY.d?READONLY.d.split('-').reverse().join('/'):'';
+  $('roBanner').innerHTML=`👀 Sola lettura${dd?' · aggiornato al '+dd:''}. Se i turni cambiano, chiedi il link nuovo.`;
+}
+window.addEventListener('hashchange',()=>location.reload());
 renderPlan();
 </script>
 </body>
