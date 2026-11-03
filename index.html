@@ -152,6 +152,11 @@
   .mi small{display:block;font-size:12px;color:var(--muted);margin-top:1px;font-weight:500}
   .mi.danger b{color:#B42318}
   body.ro #toolsBtn{display:none}
+  .prow{display:flex;align-items:flex-start;gap:8px}
+  .prow .people{flex:1;min-width:0}
+  .clearchip{flex:none;border:1px solid #F3C9C1;background:#FFF5F3;color:#B42318;font-weight:600;font-size:13px;padding:8px 12px;border-radius:999px;cursor:pointer;margin-top:2px}
+  body.ro .clearchip{display:none}
+  .btn.red{background:#B42318;border-color:#B42318;color:#fff}
 </style>
 </head>
 <body>
@@ -176,7 +181,7 @@
       <button id="rotBtn"></button><button id="copyWeekBtn"></button><button id="clearBtn"></button>
       <button id="waBtn"></button><button id="linkBtn"></button><button id="pdfBtn"></button><button id="csvBtn"></button>
     </div>
-    <div class="people" id="people"></div>
+    <div class="prow"><div class="people" id="people"></div><button class="clearchip" id="clearChip" title="Svuota mese">🧹 Svuota</button></div>
     <div class="legend" id="legend"></div>
     <p class="hint" id="editHint" style="display:none">Scegli un turno qui sotto, poi tocca le caselle per applicarlo. Si salva da solo.</p>
     <div class="stats" id="stats" style="display:none"></div>
@@ -322,6 +327,7 @@ function renderMonth(){
   document.title=S.title?`Turni · ${S.title}`:'Turni';
 }
 function renderPeople(){
+  $('clearChip').style.display=(S.people.length&&!READONLY)?'':'none';
   const el=$('people'); el.innerHTML='';
   const all=document.createElement('button'); all.className='pchip all'+(focus?'':' sel'); all.textContent='Tutte';
   all.onclick=()=>{focus=null;renderPlan();}; el.appendChild(all);
@@ -717,7 +723,11 @@ $('csvBtn').onclick=()=>{
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   toast('File Excel scaricato');
 };
-$('clearBtn').onclick=()=>{ const [y,m]=ym(); confirmSheet(`Svuotare ${MONTHS[m-1]}?`,'Tutti i turni di questo mese verranno cancellati. Persone e orari restano.','Svuota',()=>{ S.months[S.cur]={}; save(); renderPlan(); toast('Mese svuotato'); }); };
+$('clearBtn').onclick=()=>{ const [y,m]=ym();
+  openSheet(`<h3>Sei sicuro?</h3><p class="sub">Stai per cancellare <b>tutti i turni di ${MONTHS[m-1]} ${y}</b>. Persone, orari e altri mesi restano. Non si può annullare.</p>
+    <div class="foot"><button class="btn dark" id="x">No, annulla</button><button class="btn red" id="ok">Sì, svuota</button></div>`,
+  sh=>{ sh.querySelector('#x').onclick=closeSheet; sh.querySelector('#ok').onclick=()=>{ S.months[S.cur]={}; save(); closeSheet(); renderPlan(); toast('Mese svuotato'); }; }); };
+$('clearChip').onclick=()=>$('clearBtn').click();
 function tab(which){
   $('viewPlan').style.display=which==='plan'?'block':'none';
   $('viewSet').style.display=which==='set'?'block':'none';
@@ -759,7 +769,6 @@ function menu(title,items){
 $('toolsBtn').onclick=()=>menu('Strumenti',[
   {id:'rotBtn',ic:'🔄',t:'Rotazione automatica',s:'Riempie il mese facendo girare i turni'},
   {id:'copyWeekBtn',ic:'⧉',t:'Copia settimana',s:'Ripete una settimana su un’altra'},
-  {id:'clearBtn',ic:'🧹',t:'Svuota mese',s:'Cancella tutti i turni di questo mese',danger:true},
 ]);
 $('shareBtn').onclick=()=>{
   const who=focus?` di ${esc((S.people.find(p=>p.id===focus)||{}).name||'')}`:'';
