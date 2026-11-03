@@ -144,6 +144,14 @@
   .ro-banner{display:none;background:#EEF4FB;color:#24476E;border-radius:14px;padding:10px 13px;font-size:13px;font-weight:600;margin-bottom:12px;line-height:1.4}
   body.ro .ro-banner{display:block}
   body.ro .tabs,body.ro #prevM,body.ro #nextM,body.ro #editBtn,body.ro #rotBtn,body.ro #copyWeekBtn,body.ro #clearBtn,body.ro #linkBtn{display:none}
+  .actions{overflow:visible}
+  .menu{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+  .mi{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:14px;padding:12px 14px;cursor:pointer}
+  .mi .ic{font-size:20px;width:28px;text-align:center;flex:none}
+  .mi b{display:block;font-size:14.5px}
+  .mi small{display:block;font-size:12px;color:var(--muted);margin-top:1px;font-weight:500}
+  .mi.danger b{color:#B42318}
+  body.ro #toolsBtn{display:none}
 </style>
 </head>
 <body>
@@ -161,13 +169,12 @@
     </div>
     <div class="actions">
       <button class="btn" id="editBtn">✏️ Modifica</button>
-      <button class="btn" id="rotBtn">🔄 Rotazione automatica</button>
-      <button class="btn" id="copyWeekBtn">⧉ Copia settimana</button>
-      <button class="btn" id="waBtn">📤 Condividi</button>
-      <button class="btn" id="linkBtn">🔗 Link sola lettura</button>
-      <button class="btn" id="pdfBtn">📄 PDF</button>
-      <button class="btn" id="csvBtn">📊 Excel</button>
-      <button class="btn" id="clearBtn">🧹 Svuota mese</button>
+      <button class="btn" id="toolsBtn">🛠️ Strumenti ▾</button>
+      <button class="btn" id="shareBtn">📤 Condividi ▾</button>
+    </div>
+    <div style="display:none">
+      <button id="rotBtn"></button><button id="copyWeekBtn"></button><button id="clearBtn"></button>
+      <button id="waBtn"></button><button id="linkBtn"></button><button id="pdfBtn"></button><button id="csvBtn"></button>
     </div>
     <div class="people" id="people"></div>
     <div class="legend" id="legend"></div>
@@ -743,6 +750,27 @@ if(READONLY){
   }); };
 }
 window.addEventListener('hashchange',()=>location.reload());
+function menu(title,items){
+  openSheet(`<h3>${title}</h3><div class="menu">${items.map((it,n)=>`<button class="mi${it.danger?' danger':''}" data-n="${n}"><span class="ic">${it.ic}</span><span><b>${it.t}</b><small>${it.s}</small></span></button>`).join('')}</div>
+    <div class="foot" style="margin-top:12px"><button class="btn ghost" id="x">Chiudi</button></div>`,
+  sh=>{ sh.querySelector('#x').onclick=closeSheet;
+    sh.querySelectorAll('.mi').forEach(b=>b.onclick=()=>{ const it=items[+b.dataset.n]; closeSheet(); $(it.id).click(); }); });
+}
+$('toolsBtn').onclick=()=>menu('Strumenti',[
+  {id:'rotBtn',ic:'🔄',t:'Rotazione automatica',s:'Riempie il mese facendo girare i turni'},
+  {id:'copyWeekBtn',ic:'⧉',t:'Copia settimana',s:'Ripete una settimana su un’altra'},
+  {id:'clearBtn',ic:'🧹',t:'Svuota mese',s:'Cancella tutti i turni di questo mese',danger:true},
+]);
+$('shareBtn').onclick=()=>{
+  const who=focus?` di ${esc((S.people.find(p=>p.id===focus)||{}).name||'')}`:'';
+  const items=[
+    {id:'waBtn',ic:'💬',t:'Testo per WhatsApp',s:`I turni${who} come messaggio`},
+    {id:'pdfBtn',ic:'📄',t:'PDF',s:`Tabella del mese${who}, pronta da stampare o inviare`},
+    {id:'csvBtn',ic:'📊',t:'Excel',s:'File da aprire in Excel o Numbers'},
+  ];
+  if(!READONLY) items.splice(1,0,{id:'linkBtn',ic:'🔗',t:'Link di sola lettura',s:'Chi lo apre vede i turni ma non può modificarli'});
+  menu('Condividi',items);
+};
 renderPlan();
 </script>
 </body>
