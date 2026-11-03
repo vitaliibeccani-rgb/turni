@@ -157,6 +157,18 @@
   .btn.red{background:#B42318;border-color:#B42318;color:#fff}
   .tabs button{white-space:nowrap}
   @media (max-width:420px){ .tabs button{padding:8px 10px;font-size:13px} .clearchip{padding:7px 10px;font-size:12.5px} .top{gap:6px} }
+  .cov{margin-top:8px}
+  .covbar{display:flex;height:9px;border-radius:5px;overflow:hidden;gap:1px;cursor:pointer}
+  .covbar span{flex:1}
+  .covlab{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+  body.focus .cov,body.focus .swapline{display:none}
+  .swapline{margin-top:6px;font-size:11.5px;font-weight:600;color:#4E3570;background:#F3EEFA;border-radius:8px;padding:5px 7px;cursor:pointer}
+  .legend .covleg i{width:14px;height:8px;border-radius:3px}
+  .pick{display:flex;flex-direction:column;gap:6px}
+  .pick button{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px 13px;font-weight:600;font-size:14px;cursor:pointer;text-align:left}
+  .pick button .sh{font-size:12.5px;padding:3px 8px;border-radius:7px}
+  .tpl{display:flex;align-items:center;gap:6px}
+  .tpl .check{flex:1}
 </style>
 </head>
 <body>
@@ -179,7 +191,7 @@
       <button class="btn" id="shareBtn">📤 Condividi ▾</button>
     </div>
     <div style="display:none">
-      <button id="rotBtn"></button><button id="copyWeekBtn"></button><button id="clearBtn"></button>
+      <button id="rotBtn"></button><button id="tplSaveBtn"></button><button id="tplApplyBtn"></button><button id="copyWeekBtn"></button><button id="clearBtn"></button>
       <button id="waBtn"></button><button id="linkBtn"></button><button id="pdfBtn"></button><button id="csvBtn"></button>
     </div>
     <div class="people" id="people"></div>
@@ -206,6 +218,11 @@
       <p class="sub">Orari e colori. Con “ogni giorno” la pagina avvisa se in un giorno manca quel turno. Senza orario (es. 104, ferie) vale come assenza.</p>
       <div id="shiftList"></div>
       <button class="btn" id="addShift" style="margin-top:8px">＋ Aggiungi turno</button>
+    </div>
+    <div class="panel">
+      <h2>Copertura</h2>
+      <p class="sub">Numero minimo di educatrici che devono esserci in ogni momento della giornata. Sotto il minimo la barra della copertura avvisa.</p>
+      <div style="display:flex;align-items:center;gap:10px"><button class="icon" id="minDown">−</button><b id="minVal" style="font:700 22px Fraunces,serif;min-width:24px;text-align:center">1</b><button class="icon" id="minUp">＋</button></div>
     </div>
     <div class="panel">
       <h2>Giorni lavorativi</h2>
@@ -339,7 +356,7 @@ function renderPeople(){
   });
 }
 function renderLegend(){
-  $('legend').innerHTML=S.shifts.map(s=>`<span><i style="background:${COLORS[s.c%COLORS.length].dot}"></i>${esc(s.name)}${s.start?' '+fmt(s.start)+'–'+fmt(s.end):''}</span>`).join('');
+  $('legend').innerHTML=`<span class="covleg">Copertura: <i style="background:${covColor(0)}"></i>0 <i style="background:${covColor(1)}"></i>1 <i style="background:${covColor(2)}"></i>2 <i style="background:${covColor(3)}"></i>3+</span>`+S.shifts.map(s=>`<span><i style="background:${COLORS[s.c%COLORS.length].dot}"></i>${esc(s.name)}${s.start?' '+fmt(s.start)+'–'+fmt(s.end):''}</span>`).join('');
 }
 function renderStats(){
   const el=$('stats');
@@ -376,14 +393,22 @@ function renderWeeks(){
         rows+=`<div class="row${focus===p.id?' me':''}"><span class="who"><i style="background:${p.color}"></i>${esc(p.name)}</span>
           <button class="shift" data-p="${p.id}" data-d="${d}" style="background:${st.bg};color:${st.fg}">${esc(label(v))}</button></div>`;
       });
-      const w=warnings(d);
+      const cv=coverage(d);
+      const w=warnings(d).concat(cv?cv.gaps.map(g=>`${g.n===0?'Scoperto':'Sotto il minimo'} ${g.from}–${g.to}`):[]);
+      const sw=((S.swaps||{})[S.cur]||[]).map((x,i)=>({...x,i})).filter(x=>x.d===d);
+      const pname=id=>(S.people.find(p=>p.id===id)||{}).name||'?';
       card.innerHTML=`<div class="dh"><span class="n">${d}</span><span class="w">${WD_SHORT[date.getDay()]}</span>${today?'<span class="tag">oggi</span>':''}</div>
-        <div class="rows">${rows}</div>${w.length?`<div class="warn">⚠️ ${w.map(esc).join(' · ')}</div>`:''}`;
+        <div class="rows">${rows}
+        ${sw.map(x=>`<div class="swapline" data-sw="${x.i}">🔁 ${esc(pname(x.a))} ⇄ ${esc(pname(x.b))}</div>`).join('')}
+        ${cv?`<div class="cov"><div class="covbar" data-cov="${d}">${cv.counts.map(c=>`<span style="background:${covColor(c)}"></span>`).join('')}</div><div class="covlab"><span>${cv.lo}</span><span>${cv.hi}</span></div></div>`:''}
+        </div>${w.length?`<div class="warn">⚠️ ${w.map(esc).join(' · ')}</div>`:''}`;
       grid.appendChild(card);
     });
     sec.appendChild(grid); main.appendChild(sec);
   });
-  main.querySelectorAll('.shift').forEach(b=>b.onclick=()=>{ if(editing) paint(b.dataset.p,+b.dataset.d); });
+  main.querySelectorAll('.shift').forEach(b=>b.onclick=()=>{ if(editing) paint(b.dataset.p,+b.dataset.d); else if(!READONLY) swapSheet(b.dataset.p,+b.dataset.d); });
+  main.querySelectorAll('.swapline').forEach(b=>b.onclick=()=>{ if(!READONLY) undoSwapSheet(+b.dataset.sw); });
+  main.querySelectorAll('.covbar').forEach(b=>b.onclick=()=>covSheet(+b.dataset.cov));
 }
 function renderBrushes(){
   const el=$('brushes');
@@ -448,7 +473,7 @@ function rotation(){
   const selP=S.people.filter(p=>!/sostituz/i.test(p.name)).slice(0,3).map(p=>p.id);
   const working=S.shifts.filter(s=>s.start);
   const selS=working.filter(s=>s.req||s.name.toLowerCase()==='centrale').map(s=>s.id).slice(0,Math.max(selP.length,1));
-  const ws=weeks.map((w,i)=>({id:String(i),label:`${w[0]}–${w[w.length-1]}`}));
+  const ws=weeks.map((w,i)=>({id:String(i),label:wl(w)}));
   const selW=ws.map(w=>w.id);
   let onlyEmpty=true;
   openSheet(`<h3>Rotazione automatica</h3>
@@ -484,7 +509,7 @@ function rotation(){
 function copyWeek(){
   const weeks=monthWeeks();
   if(weeks.length<2){ toast('Serve almeno una seconda settimana'); return; }
-  const opts=weeks.map((w,i)=>`<option value="${i}">${w[0]}–${w[w.length-1]}</option>`).join('');
+  const opts=weeks.map((w,i)=>`<option value="${i}">${wl(w)}</option>`).join('');
   openSheet(`<h3>Copia una settimana</h3><p class="sub">Copia i turni di una settimana su un’altra, giorno per giorno (lunedì su lunedì, ecc.).</p>
     <div class="field"><label class="l">Da</label><select class="inp" id="from">${opts}</select></div>
     <div class="field"><label class="l">A</label><select class="inp" id="to">${opts}</select></div>
@@ -535,6 +560,9 @@ function colorPicker(cur,onPick,isPerson){
   return {html:`<div class="colors">${list.map((c,i)=>`<button data-c="${i}" style="background:${c}${(isPerson?c===cur:i===cur)?';box-shadow:0 0 0 2px #2B2722':''}"></button>`).join('')}</div>`, onPick};
 }
 function renderSettings(){
+  $('minVal').textContent=S.minCov||1;
+  $('minDown').onclick=()=>{ S.minCov=Math.max(1,(S.minCov||1)-1); save(); $('minVal').textContent=S.minCov; };
+  $('minUp').onclick=()=>{ S.minCov=Math.min(9,(S.minCov||1)+1); save(); $('minVal').textContent=S.minCov; };
   const ti=$('titleIn'); ti.value=S.title||''; ti.oninput=e=>{ S.title=e.target.value; save(); };
   const pl=$('peopleList'); pl.innerHTML='';
   S.people.forEach(p=>{
@@ -762,15 +790,110 @@ if(READONLY){
   }); };
 }
 window.addEventListener('hashchange',()=>location.reload());
+const wl=w=>w.length>1?`${w[0]}–${w[w.length-1]}`:`${w[0]}`;
+/* ---------- copertura ---------- */
+const m2t=x=>`${Math.floor(x/60)}:${String(x%60).padStart(2,'0')}`;
+function covColor(c){ return ['#F4C7C0','#F6E3B4','#BFE0B8','#7DBE72'][Math.min(c,3)]; }
+function coverage(d){
+  const timed=S.shifts.filter(s=>s.start&&s.end&&hm(s.end)>hm(s.start)); if(!timed.length) return null;
+  const lo=Math.min(...timed.map(s=>hm(s.start))), hi=Math.max(...timed.map(s=>hm(s.end)));
+  const ranges=S.people.map(p=>shiftById((plan()[p.id]||{})[d])).filter(s=>s&&s.start&&s.end).map(s=>[hm(s.start),hm(s.end)]);
+  if(!ranges.length) return null;
+  const STEP=30, counts=[];
+  for(let t=lo;t<hi;t+=STEP) counts.push(ranges.filter(([a,b])=>a<=t&&b>=t+STEP).length);
+  const min=S.minCov||1, gaps=[]; let g=null;
+  counts.forEach((c,i)=>{ const t=lo+i*STEP;
+    if(c<min){ if(g&&g.n===c&&g.end===t) g.end=t+STEP; else { g={n:c,start:t,end:t+STEP}; gaps.push(g); } } else g=null; });
+  return {lo:m2t(lo),hi:m2t(hi),counts,gaps:gaps.map(x=>({n:x.n,from:m2t(x.start),to:m2t(x.end)})),loM:lo,step:STEP};
+}
+function covSheet(d){
+  const cv=coverage(d); if(!cv) return; const [y,m]=ym();
+  const segs=[]; cv.counts.forEach((c,i)=>{ const t=cv.loM+i*cv.step; const last=segs[segs.length-1]; if(last&&last.c===c) last.e=t+cv.step; else segs.push({c,s:t,e:t+cv.step}); });
+  openSheet(`<h3>Copertura · ${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}</h3><p class="sub">Quante educatrici ci sono, ora per ora. Minimo impostato: ${S.minCov||1}.</p>
+    <div class="pick">${segs.map(x=>`<button style="cursor:default"><span>${m2t(x.s)} – ${m2t(x.e)}</span><span class="sh" style="background:${covColor(x.c)}">${x.c} ${x.c===1?'persona':'persone'}</span></button>`).join('')}</div>
+    <div class="foot" style="margin-top:12px"><button class="btn dark" id="x">Chiudi</button></div>`, sh=>sh.querySelector('#x').onclick=closeSheet);
+}
+/* ---------- scambio turni ---------- */
+function swapSheet(pid,d){
+  const [y,m]=ym(); const me=S.people.find(p=>p.id===pid); if(!me) return;
+  const pl=plan(); const mine=(pl[pid]||{})[d];
+  const others=S.people.filter(p=>p.id!==pid);
+  openSheet(`<h3>${esc(me.name)} · ${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}</h3>
+    <p class="sub">Turno attuale: <b>${esc(label(mine))}</b>. Con chi lo scambia?</p>
+    <div class="pick">${others.map(p=>{ const v=(pl[p.id]||{})[d]; const st=styleOf(v); return `<button data-o="${p.id}"><span>⇄ ${esc(p.name)}</span><span class="sh" style="background:${st.bg};color:${st.fg}">${esc(label(v))}</span></button>`; }).join('')}</div>
+    <div class="foot" style="margin-top:12px"><button class="btn ghost" id="x">Chiudi</button></div>`,
+  sh=>{ sh.querySelector('#x').onclick=closeSheet;
+    sh.querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>{ doSwap(pid,b.dataset.o,d); (S.swaps ||= {}); (S.swaps[S.cur] ||= []).push({d,a:pid,b:b.dataset.o,ts:Date.now()}); save(); closeSheet(); renderPlan(); toast('Turni scambiati'); }); });
+}
+function doSwap(a,b,d){
+  const pl=plan(); pl[a] ||= {}; pl[b] ||= {};
+  const va=pl[a][d], vb=pl[b][d];
+  if(vb===undefined) delete pl[a][d]; else pl[a][d]=vb;
+  if(va===undefined) delete pl[b][d]; else pl[b][d]=va;
+}
+function undoSwapSheet(i){
+  const list=(S.swaps||{})[S.cur]||[]; const x=list[i]; if(!x) return;
+  const n=id=>esc((S.people.find(p=>p.id===id)||{}).name||'?');
+  const when=new Date(x.ts); const ws=`${when.getDate()}/${when.getMonth()+1}`;
+  openSheet(`<h3>🔁 Scambio del ${x.d}</h3><p class="sub">${n(x.a)} e ${n(x.b)} si sono scambiate il turno (registrato il ${ws}).</p>
+    <div class="foot"><button class="btn ghost" id="x">Chiudi</button><button class="btn" id="hide">Nascondi nota</button><button class="btn dark" id="ok">Annulla scambio</button></div>`,
+  sh=>{ sh.querySelector('#x').onclick=closeSheet;
+    sh.querySelector('#hide').onclick=()=>{ list.splice(i,1); save(); closeSheet(); renderPlan(); };
+    sh.querySelector('#ok').onclick=()=>{ doSwap(x.a,x.b,x.d); list.splice(i,1); save(); closeSheet(); renderPlan(); toast('Scambio annullato'); }; });
+}
+/* ---------- modelli di settimana ---------- */
+function weekOptions(){ return monthWeeks().map((w,i)=>`<option value="${i}">${wl(w)}</option>`).join(''); }
+function saveTemplate(){
+  S.templates ||= [];
+  const def=`Settimana ${String.fromCharCode(65+S.templates.length%26)}`;
+  openSheet(`<h3>Salva come modello</h3><p class="sub">Salva i turni di una settimana per riusarli in qualsiasi mese.</p>
+    <div class="field"><label class="l">Settimana da salvare</label><select class="inp" id="wk">${weekOptions()}</select></div>
+    <div class="field"><label class="l">Nome del modello</label><input class="inp" id="nm" value="${esc(def)}"></div>
+    <div class="foot"><button class="btn ghost" id="x">Annulla</button><button class="btn dark" id="ok">Salva modello</button></div>`,
+  sh=>{ sh.querySelector('#x').onclick=closeSheet;
+    sh.querySelector('#ok').onclick=()=>{
+      const w=monthWeeks()[+sh.querySelector('#wk').value]; const [y,m]=ym(); const days={};
+      w.forEach(d=>{ const wd=new Date(y,m-1,d).getDay(); days[wd]={}; S.people.forEach(p=>{ const v=(plan()[p.id]||{})[d]; if(v) days[wd][p.id]=JSON.parse(JSON.stringify(v)); }); });
+      const name=sh.querySelector('#nm').value.trim()||def;
+      S.templates.push({id:uid(),name,days}); save(); closeSheet(); toast(`Modello “${name}” salvato`);
+    }; });
+}
+function applyTemplate(){
+  S.templates ||= [];
+  if(!S.templates.length){ toast('Nessun modello: prima salvane uno'); return; }
+  const weeks=monthWeeks(); let sel=S.templates[0].id; const selW=[];
+  const draw=sh=>{
+    sh.querySelector('#tpls').innerHTML=S.templates.map(t=>`<div class="tpl"><span class="check${t.id===sel?' on':''}" data-t="${t.id}">${esc(t.name)}</span><button class="del" data-del="${t.id}" title="Elimina modello">✕</button></div>`).join('')||'<p class="sub">Nessun modello.</p>';
+    sh.querySelectorAll('[data-t]').forEach(c=>c.onclick=()=>{ sel=c.dataset.t; draw(sh); });
+    sh.querySelectorAll('[data-del]').forEach(c=>c.onclick=()=>{ S.templates=S.templates.filter(t=>t.id!==c.dataset.del); save(); if(sel===c.dataset.del) sel=(S.templates[0]||{}).id; if(!S.templates.length){ closeSheet(); toast('Modello eliminato'); return; } draw(sh); });
+  };
+  openSheet(`<h3>Applica un modello</h3><p class="sub">I turni delle settimane scelte vengono sostituiti con quelli del modello, giorno per giorno.</p>
+    <div class="field"><label class="l">Modello</label><div class="pick" id="tpls"></div></div>
+    <div class="field"><label class="l">Su quali settimane</label><div class="checks">${checks(weeks.map((w,i)=>({id:String(i),label:wl(w)})),selW,'w')}</div></div>
+    <div class="foot"><button class="btn ghost" id="x">Annulla</button><button class="btn dark" id="ok">Applica</button></div>`,
+  sh=>{ draw(sh); bindChecks(sh,'w',selW); sh.querySelector('#x').onclick=closeSheet;
+    sh.querySelector('#ok').onclick=()=>{
+      const t=S.templates.find(t=>t.id===sel); if(!t) return;
+      if(!selW.length){ toast('Scegli almeno una settimana'); return; }
+      const [y,m]=ym(); const pl=plan(); let n=0;
+      selW.forEach(i=>weeks[+i].forEach(d=>{ const day=t.days[new Date(y,m-1,d).getDay()]; if(!day) return;
+        S.people.forEach(p=>{ pl[p.id] ||= {}; const v=day[p.id]; if(v){ pl[p.id][d]=JSON.parse(JSON.stringify(v)); n++; } else delete pl[p.id][d]; }); }));
+      save(); closeSheet(); renderPlan(); toast(`Modello applicato (${n} turni)`);
+    }; });
+}
 function menu(title,items){
   openSheet(`<h3>${title}</h3><div class="menu">${items.map((it,n)=>`<button class="mi${it.danger?' danger':''}" data-n="${n}"><span class="ic">${it.ic}</span><span><b>${it.t}</b><small>${it.s}</small></span></button>`).join('')}</div>
     <div class="foot" style="margin-top:12px"><button class="btn ghost" id="x">Chiudi</button></div>`,
   sh=>{ sh.querySelector('#x').onclick=closeSheet;
     sh.querySelectorAll('.mi').forEach(b=>b.onclick=()=>{ const it=items[+b.dataset.n]; closeSheet(); $(it.id).click(); }); });
 }
+$('tplSaveBtn').onclick=saveTemplate;
+$('tplApplyBtn').onclick=applyTemplate;
 $('toolsBtn').onclick=()=>menu('Strumenti',[
   {id:'rotBtn',ic:'🔄',t:'Rotazione automatica',s:'Riempie il mese facendo girare i turni'},
   {id:'copyWeekBtn',ic:'⧉',t:'Copia settimana',s:'Ripete una settimana su un’altra'},
+  {id:'tplSaveBtn',ic:'💾',t:'Salva settimana come modello',s:'Per riusarla in qualsiasi mese'},
+  {id:'tplApplyBtn',ic:'📋',t:'Applica un modello',s:(S.templates&&S.templates.length)?`${S.templates.length} ${S.templates.length===1?'modello salvato':'modelli salvati'}`:'Nessun modello salvato'},
 ]);
 $('shareBtn').onclick=()=>{
   const who=focus?` di ${esc((S.people.find(p=>p.id===focus)||{}).name||'')}`:'';
