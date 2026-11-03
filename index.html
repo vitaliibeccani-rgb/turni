@@ -117,6 +117,14 @@
     body.focus .dh{flex-direction:row;align-items:baseline;margin-bottom:8px}
     .month h1{font-size:25px}
   }
+  #pdfRender{position:fixed;left:-20000px;top:0;width:1100px;background:#fff;padding:28px 30px;font-family:'DM Sans',sans-serif;color:#2B2722}
+  #pdfRender h1{font:700 26px 'Fraunces',serif;margin-bottom:4px;text-transform:capitalize}
+  #pdfRender .pl{font-size:12px;color:#8A847A;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:4px 14px}
+  #pdfRender .pl i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  #pdfRender table{width:100%;border-collapse:separate;border-spacing:4px;margin-bottom:10px;table-layout:fixed}
+  #pdfRender th{font-size:12.5px;font-weight:700;text-align:center;padding:3px;color:#5C564D}
+  #pdfRender th.name,#pdfRender td.name{text-align:left;width:120px;font-size:13px;font-weight:600}
+  #pdfRender td{font-size:12.5px;font-weight:600;text-align:center;padding:7px 2px;border-radius:6px}
   #printArea{display:none}
   @media print{
     @page{size:A4 landscape;margin:10mm}
@@ -210,6 +218,7 @@
 <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast"></div>
 <div id="printArea"></div>
+<div id="pdfRender"></div>
 
 <script>
 /* ---------- costanti ---------- */
@@ -592,10 +601,104 @@ function buildPrint(){
   $('printArea').innerHTML=h;
 }
 window.addEventListener('beforeprint',()=>buildPrint());
-$('pdfBtn').onclick=()=>{
-  buildPrint();
-  toast('Nella finestra di stampa scegli “Salva come PDF”');
-  setTimeout(()=>{ try{ window.print(); }catch(e){ toast('Stampa non disponibile qui'); } },300);
+/* ---------- PDF senza librerie: disegno su canvas + PDF minimale con JPEG ---------- */
+function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function fitText(ctx,t,max){ if(ctx.measureText(t).width<=max) return t; while(t.length>1 && ctx.measureText(t+'…').width>max) t=t.slice(0,-1); return t+'…'; }
+const SANS="'DM Sans', 'Helvetica Neue', Arial, sans-serif", SERIF="Fraunces, Georgia, serif";
+function pdfPages(){
+  const [y,m]=ym(); const P=focus?S.people.filter(p=>p.id===focus):S.people;
+  const weeks=monthWeeks(); const maxLen=Math.max(1,...weeks.map(w=>w.length));
+  const W=1100, H=Math.round(1100*595/842), PAD=34, NAMEW=125, GAP=4, HEADH=24, ROWH=30, WGAP=16;
+  const mainTitle=S.title||`Turni ${MONTHS[m-1]} ${y}`;
+  const sub=(S.title?`Turni ${MONTHS[m-1]} ${y}`:'')+(focus?`${S.title?' – ':''}${P[0].name}`:'');
+  const blockH=HEADH+P.length*(ROWH+GAP)+WGAP;
+  const k=2; const pages=[]; let ctx=null, cy=0;
+  function newPage(){
+    const c=document.createElement('canvas'); c.width=W*k; c.height=H*k; ctx=c.getContext('2d'); ctx.scale(k,k);
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H); pages.push(c);
+    cy=PAD; ctx.textBaseline='alphabetic';
+    ctx.fillStyle='#2B2722'; ctx.font=`700 28px ${SERIF}`; ctx.fillText(fitText(ctx,mainTitle.charAt(0).toUpperCase()+mainTitle.slice(1),W-2*PAD),PAD,cy+24); cy+=34;
+    if(sub){ ctx.fillStyle='#5C564D'; ctx.font=`600 15px ${SANS}`; ctx.fillText(sub,PAD,cy+14); cy+=24; }
+    // legenda
+    ctx.font=`500 12px ${SANS}`; let lx=PAD; const ly=cy+6;
+    S.shifts.forEach(s=>{ const t=s.name+(s.start?` ${fmt(s.start)}–${fmt(s.end)}`:''); const tw=ctx.measureText(t).width;
+      if(lx+tw+30>W-PAD) return;
+      ctx.fillStyle=COLORS[s.c%COLORS.length].dot; rr(ctx,lx,ly-9,10,10,2); ctx.fill();
+      ctx.fillStyle='#8A847A'; ctx.fillText(t,lx+15,ly); lx+=tw+32; });
+    cy+=26;
+  }
+  newPage();
+  const colW=(W-2*PAD-NAMEW-GAP*maxLen)/maxLen;
+  weeks.forEach(w=>{
+    if(cy+blockH>H-PAD+WGAP) newPage();
+    ctx.textAlign='center'; ctx.fillStyle='#5C564D'; ctx.font=`700 12.5px ${SANS}`;
+    w.forEach((d,i)=>{ const x=PAD+NAMEW+GAP+i*(colW+GAP); ctx.fillText(`${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}`,x+colW/2,cy+15); });
+    cy+=HEADH;
+    P.forEach(p=>{
+      ctx.textAlign='left'; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(PAD+4,cy+ROWH/2,4,0,7); ctx.fill();
+      ctx.fillStyle='#2B2722'; ctx.font=`600 13px ${SANS}`; ctx.fillText(fitText(ctx,p.name,NAMEW-18),PAD+14,cy+ROWH/2+4.5);
+      w.forEach((d,i)=>{ const x=PAD+NAMEW+GAP+i*(colW+GAP); const v=(plan()[p.id]||{})[d]; const st=styleOf(v);
+        ctx.fillStyle=st.bg; rr(ctx,x,cy,colW,ROWH,7); ctx.fill();
+        ctx.fillStyle=st.fg; ctx.font=`600 12.5px ${SANS}`; ctx.textAlign='center'; ctx.fillText(fitText(ctx,label(v),colW-8),x+colW/2,cy+ROWH/2+4.5); });
+      cy+=ROWH+GAP;
+    });
+    cy+=WGAP;
+  });
+  // piè di pagina
+  pages.forEach((c,i)=>{ const x=c.getContext('2d'); x.textAlign='right'; x.fillStyle='#B9B3A8'; x.font=`500 10px ${SANS}`; x.fillText(pages.length>1?`${i+1}/${pages.length}`:'',W-PAD,H-14); });
+  return pages;
+}
+function b64ToBytes(b64){ const bin=atob(b64); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+function buildPdf(canvases){
+  const enc=new TextEncoder(); const parts=[]; let len=0; const offs=[];
+  const put=x=>{ const u=typeof x==='string'?enc.encode(x):x; parts.push(u); len+=u.length; };
+  const PW=842, PH=595; const n=canvases.length; const total=2+3*n;
+  put('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+  offs[1]=len; put('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+  offs[2]=len; put(`2 0 obj\n<< /Type /Pages /Kids [${canvases.map((_,i)=>`${3+3*i} 0 R`).join(' ')}] /Count ${n} >>\nendobj\n`);
+  canvases.forEach((c,i)=>{
+    const po=3+3*i, co=4+3*i, io=5+3*i;
+    const jpg=b64ToBytes(c.toDataURL('image/jpeg',0.92).split(',')[1]);
+    const content=`q ${PW} 0 0 ${PH} 0 0 cm /Im0 Do Q`;
+    offs[po]=len; put(`${po} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${io} 0 R >> >> /Contents ${co} 0 R >>\nendobj\n`);
+    offs[co]=len; put(`${co} 0 obj\n<< /Length ${content.length} >>\nstream\n${content}\nendstream\nendobj\n`);
+    offs[io]=len; put(`${io} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${c.width} /Height ${c.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`); put(jpg); put('\nendstream\nendobj\n');
+  });
+  const xref=len;
+  let x=`xref\n0 ${total+1}\n0000000000 65535 f \n`;
+  for(let i=1;i<=total;i++) x+=String(offs[i]).padStart(10,'0')+' 00000 n \n';
+  put(x+`trailer\n<< /Size ${total+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(parts,{type:'application/pdf'});
+}
+async function makePdf(){
+  try{ await Promise.all([document.fonts.load(`600 13px "DM Sans"`),document.fonts.load(`700 28px Fraunces`)]); }catch(e){}
+  const blob=buildPdf(pdfPages());
+  const [y,m]=ym();
+  const name=`Turni ${MONTHS[m-1]} ${y}${S.title?' - '+S.title:''}${focus?' - '+(S.people.find(p=>p.id===focus)||{}).name:''}.pdf`.replace(/[\\/:*?"<>|]/g,'');
+  try{ return new File([blob],name,{type:'application/pdf'}); }catch(e){ blob.name=name; return blob; }
+}
+function downloadFile(file){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(file); a.download=file.name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
+$('pdfBtn').onclick=async()=>{
+  const btn=$('pdfBtn'); const old=btn.textContent; btn.textContent='⏳ Creo il PDF…'; btn.disabled=true;
+  let file;
+  try{ file=await makePdf(); }
+  catch(e){ btn.textContent=old; btn.disabled=false; toast('Non riesco a creare il PDF'); return; }
+  btn.textContent=old; btn.disabled=false;
+  const canShare = navigator.canShare && navigator.canShare({files:[file]});
+  openSheet(`<h3>PDF pronto 📄</h3><p class="sub">${esc(file.name)}</p>
+    <div class="foot" style="flex-wrap:wrap">
+      ${canShare?'<button class="btn dark" id="shareF">📤 Condividi o salva</button>':''}
+      <button class="btn${canShare?'':' dark'}" id="dlF">⬇️ Scarica</button>
+      <button class="btn ghost" id="x">Chiudi</button>
+    </div>`, sh=>{
+    sh.querySelector('#x').onclick=closeSheet;
+    sh.querySelector('#dlF').onclick=()=>{ downloadFile(file); closeSheet(); };
+    const sf=sh.querySelector('#shareF');
+    if(sf) sf.onclick=async()=>{ try{ await navigator.share({files:[file],title:file.name}); closeSheet(); }catch(e){ if(e.name!=='AbortError'){ downloadFile(file); closeSheet(); } } };
+  });
 };
 $('csvBtn').onclick=()=>{
   const [y,m]=ym(); const days=monthWeeks().flat(); const P=focus?S.people.filter(p=>p.id===focus):S.people;
