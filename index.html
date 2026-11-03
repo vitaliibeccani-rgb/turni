@@ -152,17 +152,18 @@
   .mi small{display:block;font-size:12px;color:var(--muted);margin-top:1px;font-weight:500}
   .mi.danger b{color:#B42318}
   body.ro #toolsBtn{display:none}
-  .prow{display:flex;align-items:flex-start;gap:8px}
-  .prow .people{flex:1;min-width:0}
-  .clearchip{flex:none;border:1px solid #F3C9C1;background:#FFF5F3;color:#B42318;font-weight:600;font-size:13px;padding:8px 12px;border-radius:999px;cursor:pointer;margin-top:2px}
+  .clearchip{flex:none;border:1px solid #F3C9C1;background:#FFF5F3;color:#B42318;font-weight:600;font-size:13px;padding:8px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
   body.ro .clearchip{display:none}
   .btn.red{background:#B42318;border-color:#B42318;color:#fff}
+  .tabs button{white-space:nowrap}
+  @media (max-width:420px){ .tabs button{padding:8px 10px;font-size:13px} .clearchip{padding:7px 10px;font-size:12.5px} .top{gap:6px} }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="top">
     <div class="tabs"><button id="tabPlan" class="sel">🗓️ Turni</button><button id="tabSet">⚙️ Persone e orari</button></div>
+    <button class="clearchip" id="clearChip">🧹 Svuota mese</button>
   </div>
 
   <section id="viewPlan">
@@ -181,7 +182,7 @@
       <button id="rotBtn"></button><button id="copyWeekBtn"></button><button id="clearBtn"></button>
       <button id="waBtn"></button><button id="linkBtn"></button><button id="pdfBtn"></button><button id="csvBtn"></button>
     </div>
-    <div class="prow"><div class="people" id="people"></div><button class="clearchip" id="clearChip" title="Svuota mese">🧹 Svuota</button></div>
+    <div class="people" id="people"></div>
     <div class="legend" id="legend"></div>
     <p class="hint" id="editHint" style="display:none">Scegli un turno qui sotto, poi tocca le caselle per applicarlo. Si salva da solo.</p>
     <div class="stats" id="stats" style="display:none"></div>
@@ -327,7 +328,7 @@ function renderMonth(){
   document.title=S.title?`Turni · ${S.title}`:'Turni';
 }
 function renderPeople(){
-  $('clearChip').style.display=(S.people.length&&!READONLY)?'':'none';
+  $('clearChip').style.visibility=(S.people.length&&!READONLY&&$('viewPlan').style.display!=='none')?'visible':'hidden';
   const el=$('people'); el.innerHTML='';
   const all=document.createElement('button'); all.className='pchip all'+(focus?'':' sel'); all.textContent='Tutte';
   all.onclick=()=>{focus=null;renderPlan();}; el.appendChild(all);
@@ -733,6 +734,7 @@ function tab(which){
   $('viewSet').style.display=which==='set'?'block':'none';
   $('tabPlan').classList.toggle('sel',which==='plan');
   $('tabSet').classList.toggle('sel',which==='set');
+  $('clearChip').style.visibility=(which==='plan'&&S.people.length&&!READONLY)?'visible':'hidden';
   if(which==='set'){ editing=false; document.body.classList.remove('edit'); renderSettings(); } else renderPlan();
   window.scrollTo(0,0);
 }
