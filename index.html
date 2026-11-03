@@ -577,7 +577,9 @@ $('waBtn').onclick=async()=>{
 };
 function buildPrint(){
   const [y,m]=ym(); const P=focus?S.people.filter(p=>p.id===focus):S.people;
-  let h=`${S.title?'<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#E0795A">'+esc(S.title)+'</div>':''}<h1>Turni ${MONTHS[m-1]} ${y}${focus?' – '+esc(P[0].name):''}</h1><div class="pl">`+
+  let h=(S.title
+    ? `<h1>${esc(S.title)}</h1><div style="font-size:14px;font-weight:600;color:#5C564D;margin:2px 0 8px;text-transform:capitalize">Turni ${MONTHS[m-1]} ${y}${focus?' – '+esc(P[0].name):''}</div>`
+    : `<h1>Turni ${MONTHS[m-1]} ${y}${focus?' – '+esc(P[0].name):''}</h1>`)+`<div class="pl">`+
     S.shifts.map(s=>`<span><i style="background:${COLORS[s.c%COLORS.length].dot}"></i>${esc(s.name)}${s.start?' '+fmt(s.start)+'–'+fmt(s.end):''}</span>`).join('')+'</div>';
   const weeks=monthWeeks(); const maxLen=Math.max(...weeks.map(w=>w.length));
   weeks.forEach(w=>{
@@ -589,6 +591,7 @@ function buildPrint(){
   });
   $('printArea').innerHTML=h;
 }
+window.addEventListener('beforeprint',()=>buildPrint());
 $('pdfBtn').onclick=()=>{
   buildPrint();
   toast('Nella finestra di stampa scegli “Salva come PDF”');
