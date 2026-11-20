@@ -686,9 +686,10 @@ function pdfPages(){
   const colW=(W-2*PAD-NAMEW-GAP*maxLen)/maxLen;
   const wrap=(t,max)=>{ const out=[]; t.split('\n').forEach(par=>{ let line=''; par.split(' ').forEach(wd=>{ const tt=line?line+' '+wd:wd; if(ctx.measureText(tt).width>max&&line){ out.push(line); line=wd; } else line=tt; }); out.push(line); }); return out; };
   weeks.forEach(w=>{
-    ctx.font=`600 12px ${SANS}`;
-    const nlines=[]; w.forEach(d=>{ const nt=noteOf(d); if(!nt) return; const pre=`${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}: `; wrap(pre+nt,W-2*PAD-24).forEach((l,i)=>nlines.push(l)); });
-    const notesH=nlines.length?nlines.length*17+14:0;
+    ctx.font=`600 11px ${SANS}`;
+    const NL=14; const colNotes=w.map(d=>{ const nt=noteOf(d); return nt?wrap(nt,colW-14):null; });
+    const maxL=Math.max(0,...colNotes.map(c=>c?c.length:0));
+    const notesH=maxL?maxL*NL+14:0;
     if(cy+blockH+notesH>H-PAD+WGAP) newPage();
     ctx.textAlign='center'; ctx.fillStyle='#5C564D'; ctx.font=`700 12.5px ${SANS}`;
     w.forEach((d,i)=>{ const x=PAD+NAMEW+GAP+i*(colW+GAP); const t=`${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}`; ctx.fillText(t,x+colW/2,cy+15);
@@ -702,10 +703,11 @@ function pdfPages(){
         ctx.fillStyle=st.fg; ctx.font=`600 12.5px ${SANS}`; ctx.textAlign='center'; ctx.fillText(fitText(ctx,label(v),colW-8),x+colW/2,cy+ROWH/2+4.5); });
       cy+=ROWH+GAP;
     });
-    if(nlines.length){
-      ctx.fillStyle='#FFF4C8'; rr(ctx,PAD,cy+2,W-2*PAD,nlines.length*17+10,8); ctx.fill();
-      ctx.fillStyle='#6B5500'; ctx.font=`600 12px ${SANS}`; ctx.textAlign='left';
-      nlines.forEach((l,i)=>ctx.fillText(l,PAD+12,cy+19+i*17));
+    if(maxL){
+      ctx.textAlign='left'; ctx.fillStyle='#8A847A'; ctx.font=`600 12px ${SANS}`; ctx.fillText('Note',PAD+14,cy+16);
+      colNotes.forEach((ls,i)=>{ if(!ls) return; const x=PAD+NAMEW+GAP+i*(colW+GAP);
+        ctx.fillStyle='#FFF4C8'; rr(ctx,x,cy,colW,ls.length*NL+10,7); ctx.fill();
+        ctx.fillStyle='#6B5500'; ctx.font=`600 11px ${SANS}`; ls.forEach((l,j)=>ctx.fillText(l,x+7,cy+15+j*NL)); });
       cy+=notesH;
     }
     cy+=WGAP;
