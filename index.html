@@ -169,6 +169,13 @@
   .pick button .sh{font-size:12.5px;padding:3px 8px;border-radius:7px}
   .tpl{display:flex;align-items:center;gap:6px}
   .tpl .check{flex:1}
+  .daynote{margin:0 0 8px;font-size:12.5px;font-weight:600;color:#6B5500;background:#FFF4C8;border-radius:9px;padding:6px 8px;line-height:1.35;white-space:pre-wrap;word-break:break-word;cursor:pointer}
+  .notebtn{border:none;background:none;font-size:15px;cursor:pointer;padding:0 2px;opacity:.45;line-height:1}
+  .notebtn:hover{opacity:1}
+  body.ro .notebtn{display:none}
+  .dh .notebtn{margin-left:auto}
+  .dh .tag + .notebtn{margin-left:6px}
+  @media (max-width:760px){ .dh .notebtn{margin:6px 0 0 -2px} .daynote{grid-column:1 / -1;margin:8px 0 2px} }
 </style>
 </head>
 <body>
@@ -296,7 +303,7 @@ if(location.hash.startsWith('#v=')){
   try{
     const d=JSON.parse(b64d(location.hash.slice(3)));
     READONLY=d;
-    S={title:d.t||'',people:d.p,shifts:d.s,workdays:d.w,cur:d.c,months:{[d.c]:d.pl}};
+    S={title:d.t||'',people:d.p,shifts:d.s,workdays:d.w,cur:d.c,months:{[d.c]:d.pl},notes:{[d.c]:d.n||{}}};
   }catch(e){ READONLY=null; }
 }
 function save(){ if(READONLY) return; try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
@@ -307,6 +314,8 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 const initials=n=>n.split(/[\s.]+/).filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase()||'?';
 const ym=()=>S.cur.split('-').map(Number);
 const plan=()=> (S.months[S.cur] ||= {});
+const notesM=()=> ((S.notes ||= {})[S.cur] ||= {});
+const noteOf=d=> ((S.notes||{})[S.cur]||{})[d]||'';
 const shiftById=id=>S.shifts.find(s=>s.id===id);
 const hm=t=>{ if(!t) return null; const [h,m]=t.split(':').map(Number); return h*60+m; };
 const fmt=t=>t? t.replace(/^0/,'').replace(':00',':00') : '';
@@ -397,8 +406,9 @@ function renderWeeks(){
       const w=warnings(d).concat(cv?cv.gaps.map(g=>`${g.n===0?'Scoperto':'Sotto il minimo'} ${g.from}–${g.to}`):[]);
       const sw=((S.swaps||{})[S.cur]||[]).map((x,i)=>({...x,i})).filter(x=>x.d===d);
       const pname=id=>(S.people.find(p=>p.id===id)||{}).name||'?';
-      card.innerHTML=`<div class="dh"><span class="n">${d}</span><span class="w">${WD_SHORT[date.getDay()]}</span>${today?'<span class="tag">oggi</span>':''}</div>
-        <div class="rows">${rows}
+      const nt=noteOf(d);
+      card.innerHTML=`<div class="dh"><span class="n">${d}</span><span class="w">${WD_SHORT[date.getDay()]}</span>${today?'<span class="tag">oggi</span>':''}<button class="notebtn" data-note="${d}" title="Aggiungi nota">📝</button></div>
+        <div class="rows">${nt?`<div class="daynote" data-note="${d}">📝 ${esc(nt)}</div>`:''}${rows}
         ${sw.map(x=>`<div class="swapline" data-sw="${x.i}">🔁 ${esc(pname(x.a))} ⇄ ${esc(pname(x.b))}</div>`).join('')}
         ${cv?`<div class="cov"><div class="covbar" data-cov="${d}">${cv.counts.map(c=>`<span style="background:${covColor(c)}"></span>`).join('')}</div><div class="covlab"><span>${cv.lo}</span><span>${cv.hi}</span></div></div>`:''}
         </div>${w.length?`<div class="warn">⚠️ ${w.map(esc).join(' · ')}</div>`:''}`;
@@ -409,6 +419,7 @@ function renderWeeks(){
   main.querySelectorAll('.shift').forEach(b=>b.onclick=()=>{ if(editing) paint(b.dataset.p,+b.dataset.d); else if(!READONLY) swapSheet(b.dataset.p,+b.dataset.d); });
   main.querySelectorAll('.swapline').forEach(b=>b.onclick=()=>{ if(!READONLY) undoSwapSheet(+b.dataset.sw); });
   main.querySelectorAll('.covbar').forEach(b=>b.onclick=()=>covSheet(+b.dataset.cov));
+  main.querySelectorAll('[data-note]').forEach(b=>b.onclick=()=>{ if(!READONLY) noteSheet(+b.dataset.note); });
 }
 function renderBrushes(){
   const el=$('brushes');
@@ -540,9 +551,11 @@ function waText(){
     out+='\n';
     w.forEach(d=>{
       const wd=WD_LONG[new Date(y,m-1,d).getDay()];
-      if(focus){ out+=`${wd} ${d}: ${label((plan()[focus]||{})[d])}\n`; }
+      const nt=noteOf(d);
+      if(focus){ out+=`${wd} ${d}: ${label((plan()[focus]||{})[d])}\n`+(nt?`   📝 ${nt}\n`:''); }
       else{
         const lines=P.map(p=>{ const v=(plan()[p.id]||{})[d]; return v?`${p.name}: ${label(v)}`:null; }).filter(Boolean);
+        if(nt) lines.unshift(`📝 ${nt}`);
         if(lines.length) out+=`*${wd} ${d}*\n${lines.join('\n')}\n`;
       }
     });
@@ -671,10 +684,15 @@ function pdfPages(){
   }
   newPage();
   const colW=(W-2*PAD-NAMEW-GAP*maxLen)/maxLen;
+  const wrap=(t,max)=>{ const out=[]; t.split('\n').forEach(par=>{ let line=''; par.split(' ').forEach(wd=>{ const tt=line?line+' '+wd:wd; if(ctx.measureText(tt).width>max&&line){ out.push(line); line=wd; } else line=tt; }); out.push(line); }); return out; };
   weeks.forEach(w=>{
-    if(cy+blockH>H-PAD+WGAP) newPage();
+    ctx.font=`600 12px ${SANS}`;
+    const nlines=[]; w.forEach(d=>{ const nt=noteOf(d); if(!nt) return; const pre=`${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}: `; wrap(pre+nt,W-2*PAD-24).forEach((l,i)=>nlines.push(l)); });
+    const notesH=nlines.length?nlines.length*17+14:0;
+    if(cy+blockH+notesH>H-PAD+WGAP) newPage();
     ctx.textAlign='center'; ctx.fillStyle='#5C564D'; ctx.font=`700 12.5px ${SANS}`;
-    w.forEach((d,i)=>{ const x=PAD+NAMEW+GAP+i*(colW+GAP); ctx.fillText(`${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}`,x+colW/2,cy+15); });
+    w.forEach((d,i)=>{ const x=PAD+NAMEW+GAP+i*(colW+GAP); const t=`${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}`; ctx.fillText(t,x+colW/2,cy+15);
+      if(noteOf(d)){ const tw=ctx.measureText(t).width; ctx.fillStyle='#D9B12C'; ctx.beginPath(); ctx.arc(x+colW/2+tw/2+7,cy+11,3.5,0,7); ctx.fill(); ctx.fillStyle='#5C564D'; } });
     cy+=HEADH;
     P.forEach(p=>{
       ctx.textAlign='left'; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(PAD+4,cy+ROWH/2,4,0,7); ctx.fill();
@@ -684,6 +702,12 @@ function pdfPages(){
         ctx.fillStyle=st.fg; ctx.font=`600 12.5px ${SANS}`; ctx.textAlign='center'; ctx.fillText(fitText(ctx,label(v),colW-8),x+colW/2,cy+ROWH/2+4.5); });
       cy+=ROWH+GAP;
     });
+    if(nlines.length){
+      ctx.fillStyle='#FFF4C8'; rr(ctx,PAD,cy+2,W-2*PAD,nlines.length*17+10,8); ctx.fill();
+      ctx.fillStyle='#6B5500'; ctx.font=`600 12px ${SANS}`; ctx.textAlign='left';
+      nlines.forEach((l,i)=>ctx.fillText(l,PAD+12,cy+19+i*17));
+      cy+=notesH;
+    }
     cy+=WGAP;
   });
   // piè di pagina
@@ -747,15 +771,16 @@ $('csvBtn').onclick=()=>{
   const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
   const lines=[['',...days.map(d=>`${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}`)].map(q).join(';')];
   P.forEach(p=>lines.push([p.name,...days.map(d=>{ const v=(plan()[p.id]||{})[d]; return v?label(v):''; })].map(q).join(';')));
+  if(days.some(d=>noteOf(d))) lines.push(['Note',...days.map(d=>noteOf(d))].map(q).join(';'));
   const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`turni-${MONTHS[m-1]}-${y}.csv`;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   toast('File Excel scaricato');
 };
 $('clearBtn').onclick=()=>{ const [y,m]=ym();
-  openSheet(`<h3>Sei sicuro?</h3><p class="sub">Stai per cancellare <b>tutti i turni di ${MONTHS[m-1]} ${y}</b>. Persone, orari e altri mesi restano. Non si può annullare.</p>
+  openSheet(`<h3>Sei sicuro?</h3><p class="sub">Stai per cancellare <b>tutti i turni e le note di ${MONTHS[m-1]} ${y}</b>. Persone, orari e altri mesi restano. Non si può annullare.</p>
     <div class="foot"><button class="btn dark" id="x">No, annulla</button><button class="btn red" id="ok">Sì, svuota</button></div>`,
-  sh=>{ sh.querySelector('#x').onclick=closeSheet; sh.querySelector('#ok').onclick=()=>{ S.months[S.cur]={}; save(); closeSheet(); renderPlan(); toast('Mese svuotato'); }; }); };
+  sh=>{ sh.querySelector('#x').onclick=closeSheet; sh.querySelector('#ok').onclick=()=>{ S.months[S.cur]={}; if(S.notes) delete S.notes[S.cur]; save(); closeSheet(); renderPlan(); toast('Mese svuotato'); }; }); };
 $('clearChip').onclick=()=>$('clearBtn').click();
 function tab(which){
   $('viewPlan').style.display=which==='plan'?'block':'none';
@@ -770,7 +795,7 @@ $('tabPlan').onclick=()=>tab('plan');
 $('tabSet').onclick=()=>tab('set');
 
 $('linkBtn').onclick=async()=>{
-  const payload={t:S.title||'',p:S.people,s:S.shifts,w:S.workdays,c:S.cur,pl:plan(),d:new Date().toISOString().slice(0,10)};
+  const payload={t:S.title||'',p:S.people,s:S.shifts,w:S.workdays,c:S.cur,pl:plan(),n:notesM(),d:new Date().toISOString().slice(0,10)};
   const url=location.origin+location.pathname+'#v='+b64e(JSON.stringify(payload));
   const [y,m]=ym(); const msg=`Turni ${MONTHS[m-1]} ${y}${S.title?' – '+S.title:''}`;
   if(navigator.share){ try{ await navigator.share({title:msg,text:msg,url}); return; }catch(e){ if(e.name==='AbortError') return; } }
@@ -784,7 +809,7 @@ if(READONLY){
     let L=null; try{ L=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
     if(!L||!L.people) L={months:{}};
     L.title=S.title; L.people=S.people; L.shifts=S.shifts; L.workdays=S.workdays; L.cur=S.cur;
-    L.months=L.months||{}; L.months[S.cur]=S.months[S.cur];
+    L.months=L.months||{}; L.months[S.cur]=S.months[S.cur]; L.notes=L.notes||{}; L.notes[S.cur]=(S.notes||{})[S.cur]||{};
     try{ localStorage.setItem(KEY, JSON.stringify(L)); }catch(e){ toast('Salvataggio non riuscito'); return; }
     location.href=location.pathname;
   }); };
@@ -812,6 +837,28 @@ function covSheet(d){
   openSheet(`<h3>Copertura · ${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d}</h3><p class="sub">Quante educatrici ci sono, ora per ora. Minimo impostato: ${S.minCov||1}.</p>
     <div class="pick">${segs.map(x=>`<button style="cursor:default"><span>${m2t(x.s)} – ${m2t(x.e)}</span><span class="sh" style="background:${covColor(x.c)}">${x.c} ${x.c===1?'persona':'persone'}</span></button>`).join('')}</div>
     <div class="foot" style="margin-top:12px"><button class="btn dark" id="x">Chiudi</button></div>`, sh=>sh.querySelector('#x').onclick=closeSheet);
+}
+/* ---------- note del giorno ---------- */
+function noteSheet(d){
+  const [y,m]=ym(); const week=monthWeeks().find(w=>w.includes(d))||[d];
+  const cur=noteOf(d); const sel=[String(d)];
+  openSheet(`<h3>📝 Nota · ${WD_SHORT[new Date(y,m-1,d).getDay()]} ${d} ${MONTHS[m-1]}</h3>
+    <p class="sub">Per esempio “Riunione alle 17”, “Uscita didattica”, “Colloqui genitori”. Compare nel giorno, nel PDF e nei messaggi.</p>
+    <textarea id="nt" style="font-family:inherit;font-size:14px;min-height:80px" placeholder="Scrivi la nota…">${esc(cur)}</textarea>
+    ${week.length>1?`<div class="field" style="margin-top:12px"><label class="l">Mettila anche su</label><div class="checks">${week.map(x=>`<span class="check${x===d?' on':''}" data-nd="${x}">${WD_SHORT[new Date(y,m-1,x).getDay()]} ${x}</span>`).join('')}</div></div>`:''}
+    <div class="foot" style="margin-top:12px;flex-wrap:wrap">${cur?'<button class="btn" id="del" style="color:#B42318;margin-right:auto">Elimina nota</button>':''}<button class="btn ghost" id="x">Annulla</button><button class="btn dark" id="ok">Salva</button></div>`,
+  sh=>{
+    const ta=sh.querySelector('#nt'); setTimeout(()=>ta.focus(),60);
+    sh.querySelectorAll('[data-nd]').forEach(c=>c.onclick=()=>{ const v=c.dataset.nd; const i=sel.indexOf(v); if(i>=0) sel.splice(i,1); else sel.push(v); c.classList.toggle('on'); });
+    sh.querySelector('#x').onclick=closeSheet;
+    const del=sh.querySelector('#del'); if(del) del.onclick=()=>{ delete notesM()[d]; save(); closeSheet(); renderPlan(); toast('Nota eliminata'); };
+    sh.querySelector('#ok').onclick=()=>{
+      const v=ta.value.trim(); const nm=notesM();
+      if(!sel.length) sel.push(String(d));
+      sel.forEach(x=>{ if(v) nm[x]=v; else delete nm[x]; });
+      save(); closeSheet(); renderPlan(); toast(v?(sel.length>1?`Nota salvata su ${sel.length} giorni`:'Nota salvata'):'Nota eliminata');
+    };
+  });
 }
 /* ---------- scambio turni ---------- */
 function swapSheet(pid,d){
